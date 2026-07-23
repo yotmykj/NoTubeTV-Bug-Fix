@@ -97,9 +97,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     //isDebugInspectorInfoEnabled = true
                     useWideViewPort = true
                     domStorageEnabled = true
-                    databaseEnabled = true
-                    allowFileAccess = true
-                    allowContentAccess = true
                 }
             }
 
