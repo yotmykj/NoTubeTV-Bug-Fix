@@ -100,9 +100,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     databaseEnabled = true
                     allowFileAccess = true
                     allowContentAccess = true
-                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                    hideDefaultVideoPoster = true
-                    mediaPlaybackRequiresUserGesture = false
                 }
             }
 
