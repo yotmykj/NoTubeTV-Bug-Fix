@@ -88,26 +88,37 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             cookieManager.flush()
 
             state.webSettings.apply {
-                // This user agent provides native like experience.
-                // "PS4" for 4K. "Wired" for previews.
-                customUserAgentString = "Mozilla/5.0 Cobalt/25 (Sony, PS4, Wired)"
-                isJavaScriptEnabled = true
+    // Modern Google TV User-Agent
+    customUserAgentString =
+        "Mozilla/5.0 (Linux; Android 14; Google TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 
-                androidWebSettings.apply {
-                    //isDebugInspectorInfoEnabled = true
-                    useWideViewPort = true
-                    domStorageEnabled = true
-                    hideDefaultVideoPoster = true
-                    mediaPlaybackRequiresUserGesture = false
-                }
-            }
+    isJavaScriptEnabled = true
+
+    androidWebSettings.apply {
+        //isDebugInspectorInfoEnabled = true
+
+        useWideViewPort = true
+        domStorageEnabled = true
+        databaseEnabled = true
+
+        allowFileAccess = true
+        allowContentAccess = true
+
+        mixedContentMode =
+            android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+        hideDefaultVideoPoster = true
+        mediaPlaybackRequiresUserGesture = false
+    }
+}
 
             webView.apply {
 
                 // Bridges the exit button click on the website to handle it natively.
                 addJavascriptInterface(ExitBridge(exitTrigger), "ExitBridge")
-
-                /*
+cookieManager.setAcceptFileSchemeCookies(true)
+cookieManager.flush()
+               cookieManager.setAcceptThirdPartyCookies(webView, true) /*
                 Youtube's content security policy doesn't allow calling fetch on
                 3rd party websites (eg. SponsorBlock api). This bridge counters that
                 handling the requests on the native side. */
