@@ -2,7 +2,6 @@
     if (window.__tizentube_initialized) return;
     window.__tizentube_initialized = true;
 
-    // Приветственное уведомление при старте
     function showWelcomeToast() {
         if (document.getElementById('tizen-welcome-toast')) return;
         
@@ -42,7 +41,6 @@
     window.addEventListener('DOMContentLoaded', showWelcomeToast);
     setTimeout(showWelcomeToast, 2000);
 
-    // Логика SponsorBlock (пропуск, цветной таймлайн и уведомления)
     let currentVideoId = null;
     let segments = [];
 
@@ -63,46 +61,49 @@
     };
 
     function getVideoId() {
-        const match = window.location.href.match(/v=([a-zA-Z0-9_-]{11})/);
-        if (match) return match[1];
-        const video = document.querySelector('video');
-        if (video && video.src) {
-            const srcMatch = video.src.match(/v=([a-zA-Z0-9_-]{11})/);
-            if (srcMatch) return srcMatch[1];
-        }
+        try {
+            const match = window.location.href.match(/v=([a-zA-Z0-9_-]{11})/);
+            if (match) return match[1];
+            const video = document.querySelector('video');
+            if (video && video.src) {
+                const srcMatch = video.src.match(/v=([a-zA-Z0-9_-]{11})/);
+                if (srcMatch) return srcMatch[1];
+            }
+        } catch(e) {}
         return null;
     }
 
-    // Отрисовка цветных меток на шкале прогресса YouTube TV
     function renderTimelineSegments(duration) {
-        document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
-        const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container, [class*="progress-bar"]');
-        if (!progressBar || !duration) return;
+        try {
+            document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
+            const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container, [class*="progress-bar"]');
+            if (!progressBar || !duration) return;
 
-        segments.forEach(item => {
-            if (!item.segment || item.segment.length !== 2) return;
-            const category = item.category || 'sponsor';
+            segments.forEach(item => {
+                if (!item.segment || item.segment.length !== 2) return;
+                const category = item.category || 'sponsor';
 
-            const start = item.segment[0];
-            const end = item.segment[1];
-            const leftPercent = (start / duration) * 100;
-            const widthPercent = ((end - start) / duration) * 100;
+                const start = item.segment[0];
+                const end = item.segment[1];
+                const leftPercent = (start / duration) * 100;
+                const widthPercent = ((end - start) / duration) * 100;
 
-            const segmentEl = document.createElement('div');
-            segmentEl.className = 'sb-timeline-segment';
-            segmentEl.style.cssText = `
-                position: absolute;
-                left: ${leftPercent}%;
-                width: ${widthPercent}%;
-                height: 100%;
-                background-color: ${CATEGORY_COLORS[category] || '#00D46A'};
-                z-index: 10;
-                pointer-events: none;
-                opacity: 0.85;
-                border-radius: 2px;
-            `;
-            progressBar.appendChild(segmentEl);
-        });
+                const segmentEl = document.createElement('div');
+                segmentEl.className = 'sb-timeline-segment';
+                segmentEl.style.cssText = `
+                    position: absolute;
+                    left: ${leftPercent}%;
+                    width: ${widthPercent}%;
+                    height: 100%;
+                    background-color: ${CATEGORY_COLORS[category] || '#00D46A'};
+                    z-index: 10;
+                    pointer-events: none;
+                    opacity: 0.85;
+                    border-radius: 2px;
+                `;
+                progressBar.appendChild(segmentEl);
+            });
+        } catch(e) {}
     }
 
     function fetchSegments(videoId) {
@@ -129,79 +130,83 @@
     }
 
     function showTizenToast(categoryName, color) {
-        let toast = document.getElementById('sb-tizen-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'sb-tizen-toast';
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 60px;
-                left: 60px;
-                background: rgba(18, 18, 18, 0.94);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                border-left: 6px solid #00D46A;
-                color: #FFFFFF;
-                padding: 14px 22px;
-                border-radius: 10px;
-                font-family: Roboto, sans-serif;
-                font-size: 20px;
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-                z-index: 2147483647;
-                transition: opacity 0.3s ease, transform 0.3s ease;
+        try {
+            let toast = document.getElementById('sb-tizen-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'sb-tizen-toast';
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 60px;
+                    left: 60px;
+                    background: rgba(18, 18, 18, 0.94);
+                    border: 1px solid rgba(255, 255, 255, 0.12);
+                    border-left: 6px solid #00D46A;
+                    color: #FFFFFF;
+                    padding: 14px 22px;
+                    border-radius: 10px;
+                    font-family: Roboto, sans-serif;
+                    font-size: 20px;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+                    z-index: 2147483647;
+                    transition: opacity 0.3s ease, transform 0.3s ease;
+                `;
+                document.body.appendChild(toast);
+            }
+
+            toast.style.borderLeftColor = color;
+            toast.innerHTML = `
+                <span style="width: 10px; height: 10px; background-color: ${color}; border-radius: 50%; display: inline-block;"></span>
+                <span>Пропущено: <strong>${categoryName}</strong></span>
             `;
-            document.body.appendChild(toast);
-        }
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
 
-        toast.style.borderLeftColor = color;
-        toast.innerHTML = `
-            <span style="width: 10px; height: 10px; background-color: ${color}; border-radius: 50%; display: inline-block;"></span>
-            <span>Пропущено: <strong>${categoryName}</strong></span>
-        `;
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
-
-        clearTimeout(window.__sbToastTimeout);
-        window.__sbToastTimeout = setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(10px)';
-        }, 3000);
+            clearTimeout(window.__sbToastTimeout);
+            window.__sbToastTimeout = setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+            }, 3000);
+        } catch(e) {}
     }
 
     function checkAndSkip() {
-        const video = document.querySelector('video');
-        if (!video || video.paused) return;
+        try {
+            const video = document.querySelector('video');
+            if (!video || video.paused) return;
 
-        const videoId = getVideoId();
-        if (videoId && videoId !== currentVideoId) {
-            currentVideoId = videoId;
-            segments = [];
-            document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
-            fetchSegments(videoId);
-        }
+            const videoId = getVideoId();
+            if (videoId && videoId !== currentVideoId) {
+                currentVideoId = videoId;
+                segments = [];
+                document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
+                fetchSegments(videoId);
+            }
 
-        if (!segments || segments.length === 0) return;
-        if (video.duration && !document.querySelector('.sb-timeline-segment')) {
-            renderTimelineSegments(video.duration);
-        }
+            if (!segments || segments.length === 0) return;
+            if (video.duration && !document.querySelector('.sb-timeline-segment')) {
+                renderTimelineSegments(video.duration);
+            }
 
-        const currentTime = video.currentTime;
-        for (const item of segments) {
-            if (item.segment && item.segment.length === 2) {
-                const category = item.category || 'sponsor';
-                const start = item.segment[0];
-                const end = item.segment[1];
+            const currentTime = video.currentTime;
+            for (const item of segments) {
+                if (item.segment && item.segment.length === 2) {
+                    const category = item.category || 'sponsor';
+                    const start = item.segment[0];
+                    const end = item.segment[1];
 
-                if (currentTime >= start && currentTime < end - 0.5) {
-                    video.currentTime = end;
-                    showTizenToast(CATEGORY_NAMES[category] || 'Интеграцию', CATEGORY_COLORS[category] || '#00D46A');
-                    break;
+                    if (currentTime >= start && currentTime < end - 0.5) {
+                        video.currentTime = end;
+                        showTizenToast(CATEGORY_NAMES[category] || 'Интеграцию', CATEGORY_COLORS[category] || '#00D46A');
+                        break;
+                    }
                 }
             }
-        }
+        } catch(e) {}
     }
 
     setInterval(checkAndSkip, 400);
