@@ -8,7 +8,7 @@
             const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], button[class*="skip"]');
             skipButtons.forEach(btn => { if (btn) btn.click(); });
 
-            // 2. Ускорение и мгновенный пропуск видеорекламы
+            // 2. Ускорение и мгновенный пропуск обычной видеорекламы
             const video = document.querySelector('video');
             const adIndicator = document.querySelector('.ad-showing, .ytp-ad-player-overlay, [class*="ad-showing"], [class*="ad-container"]');
 
@@ -21,8 +21,8 @@
                 }
             }
 
-            // 3. Удаление рекламы в Shorts
-            const reelAds = document.querySelectorAll('ytlr-reel-ad-item-renderer, [is-ad-item]');
+            // 3. Полное удаление рекламы в Shorts
+            const reelAds = document.querySelectorAll('ytlr-reel-ad-item-renderer, [is-ad-item], [class*="reel-ad"]');
             reelAds.forEach(ad => ad.remove());
         } catch (e) {}
     };
