@@ -132,7 +132,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 androidWebSettings.apply {
                     useWideViewPort = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                 }
             }
 
