@@ -1,8 +1,7 @@
-(function() {
+ (function() {
     if (window.__notube_adblock_initialized) return;
     window.__notube_adblock_initialized = true;
 
-    // Уведомление "AdBlock on my round" показывается строго один раз при запуске скрипта
     function showAdBlockToast() {
         if (document.getElementById('notube-adblock-toast')) return;
         const toast = document.createElement('div');
