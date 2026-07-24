@@ -12,8 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,27 +62,10 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
     var showSplash by remember { mutableStateOf(true) }
     var countdown by remember { mutableStateOf(5) }
-    var showSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var isEnglish by remember { mutableStateOf(false) }
 
-    var adBlockEnabled by remember { mutableStateOf(true) }
-    var sponsorBlockEnabled by remember { mutableStateOf(true) }
-    var sponsorAutoSkip by remember { mutableStateOf(true) }
-    var sponsorIntroSkip by remember { mutableStateOf(true) }
-    var updateCheckEnabled by remember { mutableStateOf(true) }
-
-    val firstItemFocusRequester = remember { FocusRequester() }
     val aboutBackFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(showSettings) {
-        if (showSettings && !showAbout) {
-            delay(100)
-            try {
-                firstItemFocusRequester.requestFocus()
-            } catch (e: Exception) {}
-        }
-    }
 
     LaunchedEffect(showAbout) {
         if (showAbout) {
@@ -99,14 +80,10 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         when {
             showAbout -> {
                 showAbout = false
-                showSettings = true
             }
             showSplash -> {
                 showSplash = false
-                showSettings = true
-            }
-            showSettings -> {
-                showSettings = false
+                showAbout = true
             }
             navigator.canGoBack -> {
                 navigator.navigateBack()
@@ -135,42 +112,38 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
 
         for (i in 5 downTo 1) {
-            if (!showSplash || showSettings || showAbout) break
+            if (!showSplash || showAbout) break
             countdown = i
             delay(1000)
         }
-        if (showSplash && !showSettings && !showAbout) {
+        if (showSplash && !showAbout) {
             showSplash = false
         }
     }
 
-    LaunchedEffect(loadingState, adBlockEnabled, sponsorBlockEnabled) {
+    LaunchedEffect(loadingState) {
         if (loadingState is LoadingState.Finished) {
             if (jsScript != null) {
                 navigator.evaluateJavaScript(jsScript)
             }
 
-            if (adBlockEnabled) {
-                val adblockJs = readRaw(context, R.raw.adblock)
-                if (adblockJs.isNotEmpty()) {
-                    navigator.evaluateJavaScript(adblockJs)
-                }
+            val adblockJs = readRaw(context, R.raw.adblock)
+            if (adblockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(adblockJs)
             }
 
-            if (sponsorBlockEnabled) {
-                val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
-                if (sponsorBlockJs.isNotEmpty()) {
-                    navigator.evaluateJavaScript(sponsorBlockJs)
-                }
+            val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
+            if (sponsorBlockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(sponsorBlockJs)
             }
         }
     }
 
-    if (updateData != null && updateCheckEnabled) UpdateDialog(updateData, navigator)
+    if (updateData != null) UpdateDialog(updateData, navigator)
     if (exitTrigger.value) activity.finish()
 
     val loading = state.loadingState as? LoadingState.Loading
-    if (loading != null && !showSplash && !showSettings && !showAbout) SplashLoading(loading.progress)
+    if (loading != null && !showSplash && !showAbout) SplashLoading(loading.progress)
 
     Box(modifier = Modifier.fillMaxSize()) {
         WebView(
@@ -216,7 +189,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         )
 
-        // 1. Экран загрузки
+        // 1. Экран заставки (Splash) с надписью AdBlock on my round
         if (showSplash) {
             Box(
                 modifier = Modifier
@@ -234,7 +207,14 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "AdBlock on my round ✅",
+                        color = Color(0xFF00D46A),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
                     Text(
                         text = "Запуск сайта через $countdown сек...",
@@ -243,7 +223,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
                     Text(
-                        text = "Для настроек нажмите кнопку Back",
+                        text = "Для информации нажмите кнопку Back",
                         color = Color(0xFFFF0000),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Medium
@@ -252,65 +232,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         }
 
-        // 2. Экран настроек
-        if (showSettings && !showAbout) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xE60D0D0D)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Text(
-                        text = "Настройки NoTube TV",
-                        color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 20.dp)
-                    )
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    ) {
-                        CheckboxItem(
-                            text = "Блокировщик рекламы (AdBlock + Shorts)",
-                            checked = adBlockEnabled,
-                            modifier = Modifier.focusRequester(firstItemFocusRequester)
-                        ) { adBlockEnabled = it }
-                        
-                        CheckboxItem(text = "Включить SponsorBlock", checked = sponsorBlockEnabled) { sponsorBlockEnabled = it }
-                        CheckboxItem(text = "Авто-пропуск спонсорских вставок", checked = sponsorAutoSkip) { sponsorAutoSkip = it }
-                        CheckboxItem(text = "Пропуск интро / паузы / подписок", checked = sponsorIntroSkip) { sponsorIntroSkip = it }
-                        CheckboxItem(text = "Проверка обновлений", checked = updateCheckEnabled) { updateCheckEnabled = it }
-                    }
-
-                    MenuButton(text = "О программе / About") {
-                        showSettings = false
-                        showAbout = true
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Button(
-                        onClick = { showSettings = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCC0000)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .width(460.dp)
-                            .height(48.dp)
-                    ) {
-                        Text(text = "Запустить YouTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // 3. Отдельный экран "О программе" (About) с поддержкой RU / EN
+        // 2. Экран «О программе» (About) с поддержкой RU / EN
         if (showAbout) {
             Box(
                 modifier = Modifier
@@ -334,7 +256,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        // Кнопка переключения языка
                         MenuButton(
                             text = if (isEnglish) "🌐 RU" else "🌐 EN",
                             modifier = Modifier.width(100.dp)
@@ -380,58 +301,14 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     Spacer(modifier = Modifier.height(20.dp))
 
                     MenuButton(
-                        text = if (isEnglish) "Back to Settings" else "Назад в настройки",
+                        text = if (isEnglish) "Launch YouTube" else "Запустить YouTube",
                         modifier = Modifier.focusRequester(aboutBackFocusRequester)
                     ) {
                         showAbout = false
-                        showSettings = true
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun CheckboxItem(
-    text: String,
-    checked: Boolean,
-    modifier: Modifier = Modifier,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .width(460.dp)
-            .background(
-                color = if (isFocused) Color(0xFF333333) else Color(0xFF1E1E1E),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) Color(0xFFCC0000) else Color.Transparent,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                    onCheckedChange(!checked)
-                    true
-                } else {
-                    false
-                }
-            }
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 18.dp, vertical = 12.dp)
-    ) {
-        Text(
-            text = if (checked) "☑ $text" else "☐ $text",
-            color = Color.White,
-            fontSize = 15.sp
-        )
     }
 }
 
