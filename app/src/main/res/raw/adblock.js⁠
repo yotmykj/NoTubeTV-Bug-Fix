@@ -1,35 +1,42 @@
 (function() {
-    if (window.__notube_adblock_initialized) return;
-    window.__notube_adblock_initialized = true;
+    if (window.__notube_shorts_adblock_initialized) return;
+    window.__notube_shorts_adblock_initialized = true;
 
-    const cleanAds = () => {
+    const cleanShortsAds = () => {
         try {
-            // 1. Автоматический клик по кнопкам пропуска рекламы
-            const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], button[class*="skip"]');
-            skipButtons.forEach(btn => { if (btn) btn.click(); });
+            // 1. Поиск и полное удаление рекламных роликов и элементов в ленте Shorts (Leanback TV)
+            const reelAds = document.querySelectorAll(
+                'ytlr-reel-ad-item-renderer, ' +
+                '[is-ad-item], ' +
+                '[class*="reel-ad"], ' +
+                '[class*="shorts-ad"], ' +
+                'ytlr-ad-badge'
+            );
 
-            // 2. Ускорение и мгновенный пропуск обычной видеорекламы
-            const video = document.querySelector('video');
-            const adIndicator = document.querySelector('.ad-showing, .ytp-ad-player-overlay, [class*="ad-showing"], [class*="ad-container"]');
+            reelAds.forEach(ad => {
+                const container = ad.closest('ytlr-reel-item-renderer') || ad;
+                if (container && container.parentNode) {
+                    container.remove();
+                }
+            });
 
-            if (video && adIndicator) {
-                video.muted = true;
-                if (video.duration && !isNaN(video.duration) && video.currentTime < video.duration - 0.2) {
-                    video.currentTime = video.duration - 0.1;
-                } else {
-                    video.playbackRate = 16.0;
+            // 2. Если рекламный Short всё же начал воспроизведение — мгновенно проматываем его до конца
+            const reelVideo = document.querySelector('ytlr-reel-video-renderer video, [class*="reel"] video');
+            const adIndicator = document.querySelector('ytlr-reel-ad-item-renderer, [class*="ad-showing"]');
+
+            if (reelVideo && adIndicator) {
+                reelVideo.muted = true;
+                if (reelVideo.duration && !isNaN(reelVideo.duration)) {
+                    reelVideo.currentTime = reelVideo.duration;
                 }
             }
-
-            // 3. Полное удаление рекламы в Shorts
-            const reelAds = document.querySelectorAll('ytlr-reel-ad-item-renderer, [is-ad-item], [class*="reel-ad"]');
-            reelAds.forEach(ad => ad.remove());
         } catch (e) {}
     };
 
-    setInterval(cleanAds, 100);
+    // Проверка каждые 100мс для моментальной фильтрации Shorts
+    setInterval(cleanShortsAds, 100);
 
-    const observer = new MutationObserver(cleanAds);
+    const observer = new MutationObserver(cleanShortsAds);
     if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true });
     } else {
