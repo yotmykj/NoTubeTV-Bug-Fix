@@ -57,8 +57,34 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    if (loadingState == LoadingState.Finished && jsScript != null)
-        navigator.evaluateJavaScript(jsScript)
+    // При завершении загрузки применяем пользовательские скрипты и исправляем прозрачность
+    if (loadingState == LoadingState.Finished) {
+        if (jsScript != null) {
+            navigator.evaluateJavaScript(jsScript)
+        }
+
+        // Инжект CSS для полупрозрачности плеера и меню
+        val transparencyScript = """
+            (function() {
+                if (document.getElementById('custom-transparency-style')) return;
+                var style = document.createElement('style');
+                style.id = 'custom-transparency-style';
+                style.innerHTML = `
+                    ytlr-player-overlay, .ytlr-player-overlay, .ytlr-overlay-background {
+                        background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 70%, transparent 100%) !important;
+                        background-color: transparent !important;
+                    }
+                    ytlr-multi-page-menu-system-renderer, ytlr-dialog-renderer {
+                        background-color: rgba(18, 18, 18, 0.8) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            })();
+        """.trimIndent()
+
+        navigator.evaluateJavaScript(transparencyScript)
+    }
+
     // If any update found, show the dialog.
     if (updateData != null) UpdateDialog(updateData, navigator)
     // If exit button is pressed, 'finish the activity' aka 'exit the app'.
@@ -88,9 +114,8 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             cookieManager.flush()
 
             state.webSettings.apply {
-                // This user agent provides native like experience.
-                // "PS4" for 4K. "Wired" for previews.
-                customUserAgentString = "Mozilla/5.0 (Linux; Android 14; Google TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+                // User-Agent от Amazon Fire TV Stick 4K (Cobalt)
+                customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                 isJavaScriptEnabled = true
 
                 androidWebSettings.apply {
