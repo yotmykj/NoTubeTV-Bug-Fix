@@ -13,7 +13,7 @@
         showToast: true
     };
 
-    // 1. Надежное приветствие при старте (с максимальным z-index)
+    // 1. Приветственное уведомление при старте
     function showWelcomeToast() {
         if (document.getElementById('tizen-welcome-toast')) return;
         
@@ -37,23 +37,24 @@
         `;
         welcome.innerHTML = `
             <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV (TizenTube)</div>
-            <div style="font-size: 15px; color: #CCCCCC;">SponsorBlock и блокировщик активны ✅</div>
+            <div style="font-size: 15px; color: #CCCCCC;">SponsorBlock активен ✅</div>
         `;
         
         const targetContainer = document.body || document.documentElement;
-        targetContainer.appendChild(welcome);
-
-        setTimeout(() => {
-            welcome.style.opacity = '0';
-            setTimeout(() => welcome.remove(), 500);
-        }, 4000);
+        if (targetContainer) {
+            targetContainer.appendChild(welcome);
+            setTimeout(() => {
+                welcome.style.opacity = '0';
+                setTimeout(() => welcome.remove(), 500);
+            }, 4000);
+        }
     }
 
-    // Запускаем показ приветствия через 2.5 секунды после старта
-    setTimeout(showWelcomeToast, 2500);
+    window.addEventListener('DOMContentLoaded', showWelcomeToast);
+    setTimeout(showWelcomeToast, 2000);
 
     // 2. Окно настроек TizenTube
-    function createTizenSettingsDialog() {
+    window.openTizenSettings = function() {
         if (document.getElementById('tizen-settings-overlay')) return;
 
         const overlay = document.createElement('div');
@@ -108,43 +109,35 @@
         document.getElementById('tizen-close-btn').onclick = () => {
             overlay.remove();
         };
+    };
+
+    // 3. Создаем постоянную кнопку-триггер в левом верхнем углу (как альтернатива, если Shadow DOM заблокирован)
+    function injectFloatingTrigger() {
+        if (document.getElementById('tizen-floating-trigger')) return;
+        const trigger = document.createElement('div');
+        trigger.id = 'tizen-floating-trigger';
+        trigger.innerHTML = '⚙️ TizenTube';
+        trigger.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.85);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 2147483646;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: Roboto, sans-serif;
+        `;
+        trigger.onclick = window.openTizenSettings;
+        document.body.appendChild(trigger);
     }
 
-    // 3. Интеграция пункта в боковое меню YouTube TV (с расширенным поиском селекторов)
-    function injectMenuButton() {
-        if (document.getElementById('tizen-menu-btn')) return;
+    setTimeout(injectFloatingTrigger, 3000);
 
-        // Ищем различные варианты контейнеров меню в YouTube TV
-        const navContainer = document.querySelector('ytlr-multi-page-menu-section-renderer, .menu-list, ytlr-navigation-drawer, ytlr-guide-renderer, #sections');
-        if (navContainer) {
-            const btn = document.createElement('div');
-            btn.id = 'tizen-menu-btn';
-            btn.style.cssText = `
-                padding: 14px 20px;
-                margin: 8px 12px;
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
-                color: #fff;
-                font-size: 16px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-weight: 500;
-                border: 1px solid rgba(255,255,255,0.05);
-            `;
-            btn.innerHTML = `⚙️ <span>Настройки TizenTube</span>`;
-            btn.onclick = createTizenSettingsDialog;
-            
-            // Добавляем в начало меню
-            navContainer.prepend(btn);
-        }
-    }
-
-    // Проверяем появление меню каждые 1.5 секунды
-    setInterval(injectMenuButton, 1500);
-
-    // 4. Логика SponsorBlock (таймлайн и пропуск)
+    // 4. Логика SponsorBlock (пропуск и таймлайн)
     let currentVideoId = null;
     let segments = [];
 
@@ -302,7 +295,7 @@
                 if (category === 'intro' && !window.SB_SETTINGS.skipIntro) continue;
 
                 const start = item.segment[0];
-                const end = item.segment.length > 1 ? item.segment[1] : 0;
+                const end = item.segment[1];
 
                 if (currentTime >= start && currentTime < end - 0.5) {
                     video.currentTime = end;
@@ -313,5 +306,5 @@
         }
     }
 
-    setInterval(checkAndSkip, 400);
+    setInterval(checkAndSensorCheck = checkAndSkip, 400);
 })();
