@@ -1,0 +1,77 @@
+(function() {
+    if (window.__notube_shorts_adblock_loaded) return;
+    window.__notube_shorts_adblock_loaded = true;
+
+    console.log("[NoTube+] Активирован агрессивный блокировщик для Shorts");
+
+    const CONFIG = {
+        // Цвет индикатора выполнения, чтобы ты видел, когда он работает (опционально)
+        progressColor: '#38BDF8', 
+        // Время задержки перед следующим сканированием DOM (в мс)
+        scanInterval: 100 
+    };
+
+    // 1. УНИЧТОЖИТЕЛЬ РЕКЛАМЫ В DOM (ИНТЕРФЕЙСЕ) SHORTS
+    const cleanShortsDOM = () => {
+        // Находим все элементы, которые могут быть рекламой в Shorts
+        // YouTube ТВ использует специфические классы для рекламных Shorts-контейнеров
+        const ads = document.querySelectorAll(
+            'ytlr-reel-ad-item-renderer, ' +          // Родной рекламный рендерер Shorts
+            '[is-ad-item], ' +                        // Атрибут "рекламный элемент"
+            '.ad-interrupting, ' +                    // Класс "прерывание на рекламу"
+            '.ad-showing, ' +                         // Класс "показывается реклама"
+            '[badgetext="Реклама"]'                    // Элемент с текстом "Реклама"
+        );
+
+        ads.forEach(ad => {
+            // МЕТОД 1: ПОЛНОЕ УДАЛЕНИЕ ИЗ DOM
+            // Если мы нашли рекламный Shorts-контейнер, мы его просто вырезаем.
+            // Лента автоматически "схлопнется", и следующее видео подтянется.
+            if (ad.tagName && ad.tagName.toLowerCase() === 'ytlr-reel-ad-item-renderer') {
+                console.log("[NoTube+] Удален рекламный Shorts-контейнер");
+                ad.remove();
+            } else {
+                // МЕТОД 2: АВТО-ПРОМОТКА (если реклама уже встроилась в видеопоток)
+                // Если реклама уже запустилась, мы моментально проматываем видео до конца.
+                const video = ad.querySelector('video') || document.querySelector('video');
+                if (video && !video.__skippingAd) {
+                    console.log("[NoTube+] Промотка рекламного видео в Shorts");
+                    video.__skippingAd = true; // Защита от зацикливания
+                    
+                    // Устанавливаем время в конец видео и имитируем завершение
+                    video.muted = true;
+                    video.playbackRate = 16.0; // Для SPAs SPAs иногда нужно дать видео доиграть
+                    
+                    // Если у плеера есть JS-контроллер, пытаемся вызвать функцию пропуска
+                    if (ad.getPlayer && typeof ad.getPlayer().skipAd === 'function') {
+                         ad.getPlayer().skipAd();
+                    } else if (ad.hostElement && ad.hostElement.skipAd) {
+                         ad.hostElement.skipAd();
+                    }
+                }
+            }
+        });
+
+        // 3. СКРЫВАЕМ КНОПКИ 'SHORTS' ИЗ МЕНЮ И ЛЕНТЫ (опционально, если хочешь)
+        // Чтобы убрать Shorts из главного меню
+        // const shortsPivot = document.querySelector('ytlr-pivot-bar-item-renderer[content-id="FEshorts"]');
+        // if (shortsPivot) shortsPivot.style.display = 'none';
+    };
+
+
+    // 2. ЗАПУСК ПОСТОЯННОГО МОНИТОРИНГА
+    // MutationObserver слишком тяжел для ТВ, используем частый setInterval
+    // Он будет сканировать DOM каждые 100мс на наличие рекламных узелков Shorts.
+    const runScan = () => {
+        try {
+            cleanShortsDOM();
+        } catch (e) {
+            // Ошибки JS в ТВ-браузере — норма, просто игнорируем
+        }
+    };
+
+    // Запускаем сканирование при старте и по таймеру
+    runScan();
+    setInterval(runScan, CONFIG.scanInterval);
+
+})();
