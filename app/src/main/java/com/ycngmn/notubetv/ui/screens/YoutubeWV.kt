@@ -1,13 +1,10 @@
 package com.ycngmn.notubetv.ui.screens
 
 import android.app.Activity
-import android.graphics.Bitmap
 import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -46,14 +43,14 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loadingState = state.loadingState
     val exitTrigger = remember { mutableStateOf(false) }
 
-    // Перехват кнопки "Назад" с пульта
+    // Перехват кнопки "Назад" с пульта ТВ
     BackHandler {
         if (state.loadingState is LoadingState.Finished)
             navigator.evaluateJavaScript(readRaw(context, R.raw.back_bridge))
         else exitTrigger.value = true
     }
 
-    // Загрузка скриптов и обновлений при старте
+    // Загрузка внешних скриптов и обновлений при старте
     LaunchedEffect(Unit) {
         youtubeVM.setScript(fetchScripts())
         getUpdate(context, navigator) { update ->
@@ -61,19 +58,26 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // При завершении загрузки применяем скрипты
+    // Выполняется после полной загрузки страницы
     if (loadingState == LoadingState.Finished) {
+        // 1. Внешний JS из ViewModel
         if (jsScript != null) {
             navigator.evaluateJavaScript(jsScript)
         }
 
-        // Блокировщик рекламы из res/raw/adblock.js
+        // 2. Локальный блокировщик рекламы из res/raw/adblock.js
         val adblockScript = readRaw(context, R.raw.adblock)
         if (adblockScript.isNotEmpty()) {
             navigator.evaluateJavaScript(adblockScript)
         }
 
-        // CSS стили
+        // 3. SponsorBlock из res/raw/sponsorblock.js
+        val sponsorBlockScript = readRaw(context, R.raw.sponsorblock)
+        if (sponsorBlockScript.isNotEmpty()) {
+            navigator.evaluateJavaScript(sponsorBlockScript)
+        }
+
+        // 4. Кастомные CSS стили (прозрачность UI)
         val transparencyScript = """
             (function() {
                 if (document.getElementById('custom-transparency-style')) return;
@@ -101,9 +105,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loading = state.loadingState as? LoadingState.Loading
     if (loading != null) SplashLoading(loading.progress)
 
-    val tvUA = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
-    val loginUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
     WebView(
         modifier = Modifier.fillMaxSize(),
         state = state,
@@ -117,51 +118,36 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 WindowManager.LayoutParams.MATCH_PARENT
             )
 
+            // Настройка Cookie для сохранения сессии авторизации
             val cookieManager = CookieManager.getInstance()
             cookieManager.setAcceptCookie(true)
             cookieManager.setAcceptThirdPartyCookies(webView, true)
             cookieManager.flush()
 
             state.webSettings.apply {
-                customUserAgentString = tvUA
+                // ТВ User-Agent выдаёт экран активации по коду с телефона
+                customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                 isJavaScriptEnabled = true
 
                 androidWebSettings.apply {
                     useWideViewPort = true
                     domStorageEnabled = true
+                    databaseEnabled = true
                 }
             }
 
             webView.apply {
                 webChromeClient = WebChromeClient()
 
-                // Сохраняем оригинальный клиент библиотеки, чтобы не ломать loadingState
-                val originalClient = webViewClient
-                webViewClient = object : WebViewClient() {
-                    override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: Bitmap?) {
-                        originalClient?.onPageStarted(view, url, favicon)
-                        if (url != null && url.contains("accounts.google.com")) {
-                            view?.settings?.userAgentString = loginUA
-                        } else {
-                            view?.settings?.userAgentString = tvUA
-                        }
-                    }
-
-                    override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                        originalClient?.onPageFinished(view, url)
-                    }
-
-                    override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: WebResourceRequest?): Boolean {
-                        return originalClient?.shouldOverrideUrlLoading(view, request) ?: super.shouldOverrideUrlLoading(view, request)
-                    }
-                }
-
+                // Нативные мосты для выхода из приложения и сетевых запросов (включая SponsorBlock)
                 addJavascriptInterface(ExitBridge(exitTrigger), "ExitBridge")
                 addJavascriptInterface(NetworkBridge(navigator), "NetworkBridge")
 
+                // Аппаратное ускорение и масштабирование
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 setInitialScale(25)
 
+                // Скрываем полосы прокрутки
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
             }
