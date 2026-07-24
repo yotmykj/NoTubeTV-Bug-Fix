@@ -6,6 +6,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import org.json.JSONObject
 
 data class ReleaseData(
@@ -16,33 +17,50 @@ data class ReleaseData(
 
 private val client by lazy { HttpClient(OkHttp) }
 
-// Твой репозиторий на GitHub
 private const val GITHUB_REPO = "yotmykj/NoTubeTV-Bug-Fix"
 private const val FETCH_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
-suspend fun fetchUpdate(): ReleaseData {
-    val req = client.get(FETCH_URL)
-    val res = JSONObject(req.body<String>())
-    val commitSHA = Regex("\\b[a-fA-F0-9]{40}\\b")
+suspend fun fetchUpdate(): ReleaseData? {
+    return try {
+        val req = client.get(FETCH_URL) {
+            // ОБЯЗАТЕЛЬНО: GitHub API требует User-Agent
+            header("User-Agent", "NoTubeTV-App")
+        }
+        val res = JSONObject(req.body<String>())
+        
+        // Проверяем, есть ли прикрепленные файлы (assets)
+        val assets = res.optJSONArray("assets") ?: return null
+        if (assets.length() == 0) return null
 
-    return ReleaseData(
-        tagName = res.getString("tag_name"),
-        changelog = res.getString("body")
-            .substringAfter("</ins>", res.getString("body"))
-            .replace(commitSHA, "")
-            .replace(Regex("\\s{2,}"), " "),
-        downloadUrl = res.getJSONArray("assets").getJSONObject(0).getString("browser_download_url")
-    )
+        val commitSHA = Regex("\\b[a-fA-F0-9]{40}\\b")
+
+        ReleaseData(
+            tagName = res.optString("tag_name", ""),
+            changelog = res.optString("body", "")
+                .substringAfter("</ins>", res.optString("body", ""))
+                .replace(commitSHA, "")
+                .replace(Regex("\\s{2,}"), " "),
+            downloadUrl = assets.getJSONObject(0).optString("browser_download_url", "")
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
 }
 
 suspend fun getUpdate(context: Context, navigator: WebViewNavigator, callback: (ReleaseData?) -> Unit) {
     try {
-        val remoteRelease = fetchUpdate()
+        val remoteRelease = fetchUpdate() ?: run {
+            callback(null)
+            return
+        }
+
         val remoteVersion = remoteRelease.tagName.removePrefix("v")
         val localVersion = getLocalVersion(context)
 
-        // Безопасное сравнение версий (1.10.0 > 1.9.0)
+        // Сравниваем версии
         if (isNewerVersion(remote = remoteVersion, local = localVersion)) {
+            // Безопасно проверяем, не пропустил ли пользователь эту версию
             getSkipVersion(navigator) { skipped ->
                 val skipVersion = skipped?.removeSurrounding("\"")?.removePrefix("v")
                 if (skipVersion != remoteVersion) {
@@ -54,7 +72,8 @@ suspend fun getUpdate(context: Context, navigator: WebViewNavigator, callback: (
         } else {
             callback(null)
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        e.printStackTrace()
         callback(null)
     }
 }
@@ -83,7 +102,12 @@ private fun getLocalVersion(context: Context): String {
 }
 
 fun getSkipVersion(navigator: WebViewNavigator, callback: (String?) -> Unit) {
-    navigator.evaluateJavaScript("configRead('skipVersionName')") {
-        callback(it)
+    try {
+        navigator.evaluateJavaScript("configRead('skipVersionName')") {
+            callback(it)
+        }
+    } catch (_: Exception) {
+        // Если JS еще не загрузился, просто передаем null
+        callback(null)
     }
 }
