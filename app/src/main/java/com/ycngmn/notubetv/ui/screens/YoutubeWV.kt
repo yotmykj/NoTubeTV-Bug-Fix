@@ -8,23 +8,13 @@ import android.webkit.WebChromeClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,28 +52,11 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
     var showSplash by remember { mutableStateOf(true) }
     var countdown by remember { mutableStateOf(5) }
-    var showAbout by remember { mutableStateOf(false) }
-    var isEnglish by remember { mutableStateOf(false) }
-
-    val aboutBackFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(showAbout) {
-        if (showAbout) {
-            delay(100)
-            try {
-                aboutBackFocusRequester.requestFocus()
-            } catch (e: Exception) {}
-        }
-    }
 
     BackHandler {
         when {
-            showAbout -> {
-                showAbout = false
-            }
             showSplash -> {
                 showSplash = false
-                showAbout = true
             }
             navigator.canGoBack -> {
                 navigator.navigateBack()
@@ -112,11 +85,11 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
 
         for (i in 5 downTo 1) {
-            if (!showSplash || showAbout) break
+            if (!showSplash) break
             countdown = i
             delay(1000)
         }
-        if (showSplash && !showAbout) {
+        if (showSplash) {
             showSplash = false
         }
     }
@@ -143,7 +116,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     if (exitTrigger.value) activity.finish()
 
     val loading = state.loadingState as? LoadingState.Loading
-    if (loading != null && !showSplash && !showAbout) SplashLoading(loading.progress)
+    if (loading != null && !showSplash) SplashLoading(loading.progress)
 
     Box(modifier = Modifier.fillMaxSize()) {
         WebView(
@@ -189,168 +162,47 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         )
 
-        // 1. Экран заставки (Splash) с надписью AdBlock on my round
+        // Чистый современный Splash Screen без лишних текстов
         if (showSplash) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0D0D0D)),
+                    .background(Color(0xFF09090B)),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(32.dp)
+                Box(
+                    modifier = Modifier
+                        .width(480.dp)
+                        .background(Color(0xFF18181B), RoundedCornerShape(20.dp))
+                        .border(1.dp, Color(0xFF27272A), RoundedCornerShape(20.dp))
+                        .padding(36.dp)
                 ) {
-                    Text(
-                        text = "NoTube TV by manas",
-                        color = Color.White,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "AdBlock on my round ✅",
-                        color = Color(0xFF00D46A),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    Text(
-                        text = "Запуск сайта через $countdown сек...",
-                        color = Color.Gray,
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
-                    Text(
-                        text = "Для информации нажмите кнопку Back",
-                        color = Color(0xFFFF0000),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-
-        // 2. Экран «О программе» (About) с поддержкой RU / EN
-        if (showAbout) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF0D0D0D)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.width(520.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (isEnglish) "About NoTube TV" else "О программе",
+                            text = "NoTube TV",
                             color = Color.White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp)
                         )
-                        MenuButton(
-                            text = if (isEnglish) "🌐 RU" else "🌐 EN",
-                            modifier = Modifier.width(100.dp)
-                        ) {
-                            isEnglish = !isEnglish
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                    
-                    Box(
-                        modifier = Modifier
-                            .width(520.dp)
-                            .background(Color(0xFF1E1E1E), RoundedCornerShape(12.dp))
-                            .padding(24.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text(
-                                text = "NoTube TV by manas",
-                                color = Color(0xFFFF0000),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Text(
-                                text = if (isEnglish) 
-                                    "About App:\nNoTube TV is a modified YouTube TV client for Android TV designed to provide a seamless viewing experience with built-in AdBlock, Shorts ad filtration, and SponsorBlock.\n\nWhy I made it:\nI created this application because I wanted to enjoy YouTube on the big screen without intrusive commercials, sponsored segments, and annoying shorts ads, giving full freedom and control to users."
-                                else 
-                                    "О программе:\nNoTube TV — это модифицированный клиент YouTube TV для Android TV, созданный для комфортного просмотра видео без навязчивой рекламы, роликов в Shorts и спонсорских интеграций.\n\nПочему я это сделал:\nЯ создал это приложение, потому что мне хотелось смотреть любимый контент на большом экране телевизора без рекламных пауз, отвлекающих вставок и лишнего мусора, обеспечив максимальное удобство и полный контроль.",
-                                color = Color.LightGray,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(bottom = 14.dp)
-                            )
-                            Text(
-                                text = "Developer: manas\nEmail: saparbektv@gmail.com",
-                                color = Color(0xFF00D46A),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    MenuButton(
-                        text = if (isEnglish) "Launch YouTube" else "Запустить YouTube",
-                        modifier = Modifier.focusRequester(aboutBackFocusRequester)
-                    ) {
-                        showAbout = false
+                        Text(
+                            text = "Bug Fix v4 • Android TV",
+                            color = Color(0xFFA1A1AA),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
+                        Text(
+                            text = "Запуск через $countdown сек...",
+                            color = Color(0xFF71717A),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun MenuButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .width(460.dp)
-            .background(
-                color = if (isFocused) Color(0xFF333333) else Color(0xFF1E1E1E),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) Color(0xFFCC0000) else Color.Transparent,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                    onClick()
-                    true
-                } else {
-                    false
-                }
-            }
-            .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = Color.White,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium
-        )
     }
 }
