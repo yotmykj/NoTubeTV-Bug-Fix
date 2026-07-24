@@ -2,18 +2,7 @@
     if (window.__tizentube_initialized) return;
     window.__tizentube_initialized = true;
 
-    // Настройки по умолчанию
-    window.SB_SETTINGS = {
-        enabled: true,
-        skipSponsor: true,
-        skipIntro: true,
-        skipOutro: true,
-        skipInteraction: true,
-        skipSelfpromo: true,
-        showToast: true
-    };
-
-    // 1. Приветственное уведомление при старте
+    // Приветственное уведомление при старте
     function showWelcomeToast() {
         if (document.getElementById('tizen-welcome-toast')) return;
         
@@ -36,7 +25,7 @@
             transition: opacity 0.5s ease;
         `;
         welcome.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV (TizenTube)</div>
+            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV by manas</div>
             <div style="font-size: 15px; color: #CCCCCC;">SponsorBlock активен ✅</div>
         `;
         
@@ -53,91 +42,7 @@
     window.addEventListener('DOMContentLoaded', showWelcomeToast);
     setTimeout(showWelcomeToast, 2000);
 
-    // 2. Окно настроек TizenTube
-    window.openTizenSettings = function() {
-        if (document.getElementById('tizen-settings-overlay')) return;
-
-        const overlay = document.createElement('div');
-        overlay.id = 'tizen-settings-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2147483647;
-            font-family: Roboto, sans-serif;
-        `;
-
-        overlay.innerHTML = `
-            <div style="background: #1e1e1e; border: 1px solid rgba(255,255,255,0.15); width: 550px; padding: 30px; border-radius: 16px; color: #fff; box-shadow: 0 25px 60px rgba(0,0,0,0.9);">
-                <h2 style="margin-top: 0; font-size: 24px; color: #FF0000; display: flex; align-items: center; gap: 10px;">
-                    ⚙️ Настройки TizenTube / SponsorBlock
-                </h2>
-                <div style="margin: 20px 0; display: flex; flex-direction: column; gap: 14px;">
-                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 17px; cursor: pointer; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 8px;">
-                        <span>Включить SponsorBlock</span>
-                        <input type="checkbox" id="tizen-sb-enabled" ${window.SB_SETTINGS.enabled ? 'checked' : ''} style="width: 22px; height: 22px; accent-color: #FF0000;">
-                    </label>
-                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 17px; cursor: pointer; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 8px;">
-                        <span>Всплывающие уведомления (Toast)</span>
-                        <input type="checkbox" id="tizen-sb-toast" ${window.SB_SETTINGS.showToast ? 'checked' : ''} style="width: 22px; height: 22px; accent-color: #FF0000;">
-                    </label>
-                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 17px; cursor: pointer; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 8px;">
-                        <span>Пропускать спонсоров</span>
-                        <input type="checkbox" id="tizen-sb-sponsor" ${window.SB_SETTINGS.skipSponsor ? 'checked' : ''} style="width: 22px; height: 22px; accent-color: #FF0000;">
-                    </label>
-                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 17px; cursor: pointer; background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 8px;">
-                        <span>Пропускать интро / заставки</span>
-                        <input type="checkbox" id="tizen-sb-intro" ${window.SB_SETTINGS.skipIntro ? 'checked' : ''} style="width: 22px; height: 22px; accent-color: #FF0000;">
-                    </label>
-                </div>
-                <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                    <button id="tizen-close-btn" style="background: #FF0000; color: #fff; border: none; padding: 12px 26px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer;">Закрыть</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        document.getElementById('tizen-sb-enabled').onchange = (e) => { window.SB_SETTINGS.enabled = e.target.checked; };
-        document.getElementById('tizen-sb-toast').onchange = (e) => { window.SB_SETTINGS.showToast = e.target.checked; };
-        document.getElementById('tizen-sb-sponsor').onchange = (e) => { window.SB_SETTINGS.skipSponsor = e.target.checked; };
-        document.getElementById('tizen-sb-intro').onchange = (e) => { window.SB_SETTINGS.skipIntro = e.target.checked; };
-
-        document.getElementById('tizen-close-btn').onclick = () => {
-            overlay.remove();
-        };
-    };
-
-    // 3. Создаем постоянную кнопку-триггер в левом верхнем углу (как альтернатива, если Shadow DOM заблокирован)
-    function injectFloatingTrigger() {
-        if (document.getElementById('tizen-floating-trigger')) return;
-        const trigger = document.createElement('div');
-        trigger.id = 'tizen-floating-trigger';
-        trigger.innerHTML = '⚙️ TizenTube';
-        trigger.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(30, 30, 30, 0.85);
-            color: #fff;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 2147483646;
-            cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.2);
-            font-family: Roboto, sans-serif;
-        `;
-        trigger.onclick = window.openTizenSettings;
-        document.body.appendChild(trigger);
-    }
-
-    setTimeout(injectFloatingTrigger, 3000);
-
-    // 4. Логика SponsorBlock (пропуск и таймлайн)
+    // Логика SponsorBlock (пропуск, цветной таймлайн и уведомления)
     let currentVideoId = null;
     let segments = [];
 
@@ -168,17 +73,15 @@
         return null;
     }
 
+    // Отрисовка цветных меток на шкале прогресса YouTube TV
     function renderTimelineSegments(duration) {
         document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
-        const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container');
+        const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container, [class*="progress-bar"]');
         if (!progressBar || !duration) return;
 
         segments.forEach(item => {
             if (!item.segment || item.segment.length !== 2) return;
             const category = item.category || 'sponsor';
-            
-            if (category === 'sponsor' && !window.SB_SETTINGS.skipSponsor) return;
-            if (category === 'intro' && !window.SB_SETTINGS.skipIntro) return;
 
             const start = item.segment[0];
             const end = item.segment[1];
@@ -226,7 +129,6 @@
     }
 
     function showTizenToast(categoryName, color) {
-        if (!window.SB_SETTINGS.showToast) return;
         let toast = document.getElementById('sb-tizen-toast');
         if (!toast) {
             toast = document.createElement('div');
@@ -270,7 +172,6 @@
     }
 
     function checkAndSkip() {
-        if (!window.SB_SETTINGS.enabled) return;
         const video = document.querySelector('video');
         if (!video || video.paused) return;
 
@@ -291,9 +192,6 @@
         for (const item of segments) {
             if (item.segment && item.segment.length === 2) {
                 const category = item.category || 'sponsor';
-                if (category === 'sponsor' && !window.SB_SETTINGS.skipSponsor) continue;
-                if (category === 'intro' && !window.SB_SETTINGS.skipIntro) continue;
-
                 const start = item.segment[0];
                 const end = item.segment[1];
 
@@ -306,5 +204,5 @@
         }
     }
 
-    setInterval(checkAndSensorCheck = checkAndSkip, 400);
+    setInterval(checkAndSkip, 400);
 })();
