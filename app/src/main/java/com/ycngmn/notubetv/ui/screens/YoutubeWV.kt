@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -297,17 +296,5 @@ fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> U
             color = Color.White,
             fontSize = 15.sp
         )
-    }
-}
-
-@Composable
-fun SplashLoading(progress: Float) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0D0D0D)),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(color = Color(0xFFCC0000))
     }
 }
