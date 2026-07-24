@@ -13,7 +13,7 @@
         showToast: true
     };
 
-    // Приветственное уведомление в стиле TizenTube Cobalt при старте
+    // Приветственное уведомление при старте
     function showWelcomeToast() {
         if (document.getElementById('tizen-welcome-toast')) return;
         
@@ -23,7 +23,7 @@
             position: fixed;
             top: 40px;
             right: 40px;
-            background: rgba(28, 28, 28, 0.95);
+            background: rgba(18, 18, 18, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-left: 6px solid #FF0000;
             color: #FFFFFF;
@@ -36,8 +36,8 @@
             transition: opacity 0.5s ease;
         `;
         welcome.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV (TizenTube)</div>
-            <div style="font-size: 15px; color: #CCCCCC;">Спонсорблок и блокировщик активны ✅</div>
+            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">TizenTube / NoTube TV</div>
+            <div style="font-size: 15px; color: #CCCCCC;">SponsorBlock активен ✅</div>
         `;
         document.body.appendChild(welcome);
 
@@ -47,8 +47,96 @@
         }, 4000);
     }
 
-    // Запускаем приветствие через 2 секунды после загрузки плеера
     setTimeout(showWelcomeToast, 2000);
+
+    // Создание нативного окна настроек TizenTube внутри страницы
+    function createTizenSettingsDialog() {
+        if (document.getElementById('tizen-settings-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'tizen-settings-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999999;
+            font-family: "YouTube Noto", Roboto, sans-serif;
+        `;
+
+        overlay.innerHTML = `
+            <div style="background: #181818; border: 1px solid rgba(255,255,255,0.1); width: 600px; padding: 30px; border-radius: 16px; color: #fff; box-shadow: 0 20px 50px rgba(0,0,0,0.9);">
+                <h2 style="margin-top: 0; font-size: 26px; color: #FF0000; display: flex; align-items: center; gap: 10px;">
+                    ⚙️ Настройки TizenTube
+                </h2>
+                <div style="margin: 20px 0; display: flex; flex-direction: column; gap: 15px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; cursor: pointer;">
+                        <span>Включить SponsorBlock</span>
+                        <input type="checkbox" id="tizen-sb-enabled" ${window.SB_SETTINGS.enabled ? 'checked' : ''} style="width: 24px; height: 24px;">
+                    </label>
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; cursor: pointer;">
+                        <span>Показывать уведомления (Toast)</span>
+                        <input type="checkbox" id="tizen-sb-toast" ${window.SB_SETTINGS.showToast ? 'checked' : ''} style="width: 24px; height: 24px;">
+                    </label>
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; cursor: pointer;">
+                        <span>Пропускать спонсоров</span>
+                        <input type="checkbox" id="tizen-sb-sponsor" ${window.SB_SETTINGS.skipSponsor ? 'checked' : ''} style="width: 24px; height: 24px;">
+                    </label>
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; cursor: pointer;">
+                        <span>Пропускать интро / заставки</span>
+                        <input type="checkbox" id="tizen-sb-intro" ${window.SB_SETTINGS.skipIntro ? 'checked' : ''} style="width: 24px; height: 24px;">
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 25px;">
+                    <button id="tizen-close-btn" style="background: #FF0000; color: #white; border: none; padding: 12px 28px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer;">Закрыть</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Обработчики сохранения при клике
+        document.getElementById('tizen-sb-enabled').onchange = (e) => { window.SB_SETTINGS.enabled = e.target.checked; };
+        document.getElementById('tizen-sb-toast').onchange = (e) => { window.SB_SETTINGS.showToast = e.target.checked; };
+        document.getElementById('tizen-sb-sponsor').onchange = (e) => { window.SB_SETTINGS.skipSponsor = e.target.checked; };
+        document.getElementById('tizen-sb-intro').onchange = (e) => { window.SB_SETTINGS.skipIntro = e.target.checked; };
+
+        document.getElementById('tizen-close-btn').onclick = () => {
+            overlay.remove();
+        };
+    }
+
+    // Инъекция пункта настроек в боковое меню YouTube TV или создание кнопки быстрого вызова
+    function injectMenuButton() {
+        if (document.getElementById('tizen-menu-btn')) return;
+
+        // Ищем панель навигации YouTube TV
+        const navContainer = document.querySelector('ytlr-multi-page-menu-section-renderer, .menu-list, ytlr-navigation-drawer');
+        if (navContainer) {
+            const btn = document.createElement('div');
+            btn.id = 'tizen-menu-btn';
+            btn.style.cssText = `
+                padding: 14px 20px;
+                margin: 10px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                color: #fff;
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                font-weight: 500;
+            `;
+            btn.innerHTML = `⚙️ <span>TizenTube Настройки</span>`;
+            btn.onclick = createTizenSettingsDialog;
+            navContainer.prepend(btn);
+        }
+    }
+
+    setInterval(injectMenuButton, 2000);
 
     let currentVideoId = null;
     let segments = [];

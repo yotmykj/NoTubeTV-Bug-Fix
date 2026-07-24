@@ -5,15 +5,12 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -23,7 +20,6 @@ import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
 import com.ycngmn.notubetv.R
 import com.ycngmn.notubetv.ui.YoutubeVM
-import com.ycngmn.notubetv.ui.components.SettingsDialog
 import com.ycngmn.notubetv.ui.components.UpdateDialog
 import com.ycngmn.notubetv.utils.ExitBridge
 import com.ycngmn.notubetv.utils.NetworkBridge
@@ -47,51 +43,29 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loadingState = state.loadingState
     val exitTrigger = remember { mutableStateOf(false) }
 
-    // Состояния для всплывающего меню настроек
-    var showSettings by remember { mutableStateOf(false) }
-    var isWelcomeShown by remember { mutableStateOf(false) }
-
     // Перехват кнопки "Назад" с пульта ТВ
     BackHandler {
         when {
-            // Если открыто диалоговое окно настроек — закрываем его
-            showSettings -> {
-                showSettings = false
-            }
-            // 1. Если у WebView есть обычная история переходов
             navigator.canGoBack -> {
                 navigator.navigateBack()
             }
-            // 2. Если страница загружена — отправляем событие Escape в YouTube TV
             state.loadingState is LoadingState.Finished -> {
                 val backPressScript = """
                     (function() {
-                        function dispatchKey(key, keyCode, code) {
-                            const downEvent = new KeyboardEvent('keydown', {
-                                key: key, keyCode: keyCode, code: code, which: keyCode,
-                                bubbles: true, cancelable: true
-                            });
-                            const upEvent = new KeyboardEvent('keyup', {
-                                key: key, keyCode: keyCode, code: code, which: keyCode,
-                                bubbles: true, cancelable: true
-                            });
-                            document.dispatchEvent(downEvent);
-                            document.dispatchEvent(upEvent);
-                        }
-                        dispatchKey('Escape', 27, 'Escape');
+                        const downEvent = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, code: 'Escape', which: 27, bubbles: true, cancelable: true });
+                        const upEvent = new KeyboardEvent('keyup', { key: 'Escape', keyCode: 27, code: 'Escape', which: 27, bubbles: true, cancelable: true });
+                        document.dispatchEvent(downEvent);
+                        document.dispatchEvent(upEvent);
                     })();
                 """.trimIndent()
-
                 navigator.evaluateJavaScript(backPressScript)
             }
-            // 3. В остальных случаях закрываем приложение
             else -> {
                 exitTrigger.value = true
             }
         }
     }
 
-    // Загрузка внешних скриптов и обновлений при старте
     LaunchedEffect(Unit) {
         youtubeVM.setScript(fetchScripts())
         getUpdate(context, navigator) { update ->
@@ -99,64 +73,23 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // Выполняется один раз после полной загрузки страницы
     if (loadingState == LoadingState.Finished) {
-
-        // Приветственное сообщение при первом входе в сессию
-        if (!isWelcomeShown) {
-            Toast.makeText(context, "Добро пожаловать в NoTube TV! 🚀", Toast.LENGTH_LONG).show()
-            isWelcomeShown = true
-        }
-
-        // 1. Внешний JS из ViewModel
         if (jsScript != null) {
             navigator.evaluateJavaScript(jsScript)
         }
 
-        // 2. Локальный блокировщик рекламы из res/raw/adblock.js
-        try {
-            val adblockJs = readRaw(context, R.raw.adblock)
-            if (adblockJs.isNotEmpty()) {
-                navigator.evaluateJavaScript(adblockJs)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val adblockJs = readRaw(context, R.raw.adblock)
+        if (adblockJs.isNotEmpty()) {
+            navigator.evaluateJavaScript(adblockJs)
         }
 
-        // 3. SponsorBlock из res/raw/sponsorblock.js
-        try {
-            val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
-            if (sponsorBlockJs.isNotEmpty()) {
-                navigator.evaluateJavaScript(sponsorBlockJs)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
+        if (sponsorBlockJs.isNotEmpty()) {
+            navigator.evaluateJavaScript(sponsorBlockJs)
         }
-
-        // 4. Кастомные CSS стили (прозрачность UI)
-        val transparencyScript = """
-            (function() {
-                if (document.getElementById('custom-transparency-style')) return;
-                var style = document.createElement('style');
-                style.id = 'custom-transparency-style';
-                style.innerHTML = `
-                    ytlr-player-overlay, .ytlr-player-overlay, .ytlr-overlay-background {
-                        background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 70%, transparent 100%) !important;
-                        background-color: transparent !important;
-                    }
-                    ytlr-multi-page-menu-system-renderer, ytlr-dialog-renderer {
-                        background-color: rgba(18, 18, 18, 0.8) !important;
-                    }
-                `;
-                document.head.appendChild(style);
-            })();
-        """.trimIndent()
-
-        navigator.evaluateJavaScript(transparencyScript)
     }
 
     if (updateData != null) UpdateDialog(updateData, navigator)
-    if (showSettings) SettingsDialog(navigator = navigator, onDismiss = { showSettings = false })
     if (exitTrigger.value) activity.finish()
 
     val loading = state.loadingState as? LoadingState.Loading
