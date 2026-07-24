@@ -52,31 +52,42 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loadingState = state.loadingState
     val exitTrigger = remember { mutableStateOf(false) }
 
-    // Состояния для 5-секундного экрана загрузки и лаунчера
+    // Состояния
     var showSplash by remember { mutableStateOf(true) }
     var countdown by remember { mutableStateOf(5) }
-    var showLauncherSelect by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
-    var selectedLauncher by remember { mutableStateOf("1080 Main") }
-    var rememberChoice by remember { mutableStateOf(true) }
-    var endCardsEnabled by remember { mutableStateOf(true) }
+    // Настоящие настройки вместо выбора 1080p
+    var adBlockEnabled by remember { mutableStateOf(true) }
+    var sponsorBlockEnabled by remember { mutableStateOf(true) }
     var updateCheckEnabled by remember { mutableStateOf(true) }
 
-    // Обработка кнопки "Назад"
+    // Логика кнопки "Назад":
+    // 1. Во время 5-секундного сплеш-экрана нажатие Back открывает настройки.
+    // 2. Внутри настроек нажатие Back закрывает их и запускает YouTube.
+    // 3. Внутри YouTube кнопка Back работает штатно (история назад / отправка Escape / выход).
     BackHandler {
         when {
             showSplash -> {
                 showSplash = false
-                showLauncherSelect = true
+                showSettings = true
             }
-            showLauncherSelect -> {
-                showLauncherSelect = false
+            showSettings -> {
+                showSettings = false
             }
             navigator.canGoBack -> {
                 navigator.navigateBack()
             }
             state.loadingState is LoadingState.Finished -> {
-                showLauncherSelect = true
+                val backPressScript = """
+                    (function() {
+                        const downEvent = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, code: 'Escape', which: 27, bubbles: true, cancelable: true });
+                        const upEvent = new KeyboardEvent('keyup', { key: 'Escape', keyCode: 27, code: 'Escape', which: 27, bubbles: true, cancelable: true });
+                        document.dispatchEvent(downEvent);
+                        document.dispatchEvent(upEvent);
+                    })();
+                """.trimIndent()
+                navigator.evaluateJavaScript(backPressScript)
             }
             else -> {
                 exitTrigger.value = true
@@ -84,7 +95,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // Запуск таймера обратного отчета на 5 секунд при старте
+    // Таймер обратного отчета на 5 секунд при старте
     LaunchedEffect(Unit) {
         youtubeVM.setScript(fetchScripts())
         getUpdate(context, navigator) { update ->
@@ -92,11 +103,13 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
 
         for (i in 5 downTo 1) {
-            if (!showSplash) break
+            if (!showSplash || showSettings) break
             countdown = i
             delay(1000)
         }
-        showSplash = false
+        if (showSplash && !showSettings) {
+            showSplash = false
+        }
     }
 
     if (loadingState is LoadingState.Finished) {
@@ -104,14 +117,18 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             navigator.evaluateJavaScript(jsScript)
         }
 
-        val adblockJs = readRaw(context, R.raw.adblock)
-        if (adblockJs.isNotEmpty()) {
-            navigator.evaluateJavaScript(adblockJs)
+        if (adBlockEnabled) {
+            val adblockJs = readRaw(context, R.raw.adblock)
+            if (adblockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(adblockJs)
+            }
         }
 
-        val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
-        if (sponsorBlockJs.isNotEmpty()) {
-            navigator.evaluateJavaScript(sponsorBlockJs)
+        if (sponsorBlockEnabled) {
+            val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
+            if (sponsorBlockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(sponsorBlockJs)
+            }
         }
     }
 
@@ -199,8 +216,8 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         }
 
-        // 2. Экран выбора лаунчера / настроек (открывается по кнопке Back)
-        if (showLauncherSelect) {
+        // 2. Экран настроек (AdBlock, SponsorBlock)
+        if (showSettings) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -213,72 +230,30 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     modifier = Modifier.padding(32.dp)
                 ) {
                     Text(
-                        text = "Please, select YouTube launcher (6.14.18)",
+                        text = "Настройки NoTube TV",
                         color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 32.dp)
                     )
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    ) {
-                        val options = listOf("1080 Main", "1080 Alt", "4K Main", "4K Alt")
-                        options.forEach { option ->
-                            val isSelected = selectedLauncher == option
-                            Box(
-                                modifier = Modifier
-                                    .width(150.dp)
-                                    .height(90.dp)
-                                    .background(
-                                        color = if (isSelected) Color.White else Color(0xFF1E1E1E),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { selectedLauncher = option },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "1080/4K",
-                                        color = if (isSelected) Color.Black else Color.Gray,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        text = option,
-                                        color = if (isSelected) Color.Black else Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.padding(bottom = 40.dp)
                     ) {
-                        CheckboxItem(text = "Remember", checked = rememberChoice) { rememberChoice = it }
-                        CheckboxItem(text = "End Cards", checked = endCardsEnabled) { endCardsEnabled = it }
-                        CheckboxItem(text = "Update Check", checked = updateCheckEnabled) { updateCheckEnabled = it }
+                        CheckboxItem(text = "Блокировщик рекламы (AdBlock)", checked = adBlockEnabled) { adBlockEnabled = it }
+                        CheckboxItem(text = "Пропуск спонсоров (SponsorBlock)", checked = sponsorBlockEnabled) { sponsorBlockEnabled = it }
+                        CheckboxItem(text = "Проверка обновлений", checked = updateCheckEnabled) { updateCheckEnabled = it }
                     }
 
                     Button(
-                        onClick = { showLauncherSelect = false },
+                        onClick = { showSettings = false },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCC0000)),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.width(200.dp).height(50.dp)
+                        modifier = Modifier.width(220.dp).height(50.dp)
                     ) {
-                        Text(text = "Launch", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "Запустить YouTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
-
-                    Text(
-                        text = "Up to 1080p on most of the devices",
-                        color = Color.Gray,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(top = 24.dp)
-                    )
                 }
             }
         }
@@ -290,14 +265,15 @@ fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> U
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(6.dp))
+            .width(420.dp)
+            .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(8.dp))
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
         Text(
             text = if (checked) "☑ $text" else "☐ $text",
             color = Color.White,
-            fontSize = 15.sp
+            fontSize = 16.sp
         )
     }
 }
