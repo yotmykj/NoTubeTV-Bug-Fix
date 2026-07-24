@@ -5,12 +5,26 @@
     let currentVideoId = null;
     let segments = [];
 
-    // Получение ID текущего видео из URL или интерфейса TV
+    // Цвета категорий как в TizenTube / SmartTube
+    const CATEGORY_COLORS = {
+        sponsor: '#00D46A',       // Зеленый — спонсор
+        intro: '#00C3FF',         // Голубой — интро
+        outro: '#00C3FF',         // Голубой — концовка
+        interaction: '#CC00FF',   // Фиолетовый — призыв подписаться
+        selfpromo: '#FF9900'      // Оранжевый — самопиар
+    };
+
+    const CATEGORY_NAMES = {
+        sponsor: 'Спонсорская интеграция',
+        intro: 'Заставка / Интро',
+        outro: 'Концовка',
+        interaction: 'Призыв к действию',
+        selfpromo: 'Самопиар / Анонс'
+    };
+
     function getVideoId() {
         const match = window.location.href.match(/v=([a-zA-Z0-9_-]{11})/);
         if (match) return match[1];
-        
-        // Резервный вариант для YouTube TV
         const video = document.querySelector('video');
         if (video && video.src) {
             const srcMatch = video.src.match(/v=([a-zA-Z0-9_-]{11})/);
@@ -19,30 +33,107 @@
         return null;
     }
 
-    // Запрос сегментов с сервера SponsorBlock
+    // Отрисовка цветных полосок на таймлайне Cobalt (как в TizenTube)
+    function renderTimelineSegments(duration) {
+        document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
+
+        const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container');
+        if (!progressBar || !duration) return;
+
+        segments.forEach(item => {
+            if (!item.segment || item.segment.length !== 2) return;
+            const start = item.segment[0];
+            const end = item.segment[1];
+            const category = item.category || 'sponsor';
+
+            const leftPercent = (start / duration) * 100;
+            const widthPercent = ((end - start) / duration) * 100;
+
+            const segmentEl = document.createElement('div');
+            segmentEl.className = 'sb-timeline-segment';
+            segmentEl.style.cssText = `
+                position: absolute;
+                left: ${leftPercent}%;
+                width: ${widthPercent}%;
+                height: 100%;
+                background-color: ${CATEGORY_COLORS[category] || '#00D46A'};
+                z-index: 10;
+                pointer-events: none;
+                opacity: 0.85;
+                border-radius: 2px;
+            `;
+            progressBar.appendChild(segmentEl);
+        });
+    }
+
     function fetchSegments(videoId) {
         const categories = '["sponsor","intro","outro","interaction","selfpromo"]';
         const url = `https://sponsor.ajay.app/api/skipSegments?videoID=${videoId}&categories=${encodeURIComponent(categories)}`;
 
-        // Если доступен нативный NetworkBridge (из твоего проекта)
-        if (window.NetworkBridge && window.NetworkBridge.fetch) {
-            window.NetworkBridge.fetch(url, 'GET', '', function(response) {
-                try {
-                    segments = JSON.parse(response);
-                } catch (e) {
-                    segments = [];
+        const handleResponse = (data) => {
+            try {
+                segments = typeof data === 'string' ? JSON.parse(data) : data;
+                const video = document.querySelector('video');
+                if (video && video.duration) {
+                    renderTimelineSegments(video.duration);
                 }
-            });
+            } catch (e) {
+                segments = [];
+            }
+        };
+
+        if (window.NetworkBridge && window.NetworkBridge.fetch) {
+            window.NetworkBridge.fetch(url, 'GET', '', handleResponse);
         } else {
-            // Обычный fetch на случай прямых запросов
-            fetch(url)
-                .then(res => res.json())
-                .then(data => { segments = data; })
-                .catch(() => { segments = []; });
+            fetch(url).then(r => r.json()).then(handleResponse).catch(() => { segments = []; });
         }
     }
 
-    // Проверка времени и автопропуск интеграций
+    // Всплывающее уведомление в стиле TizenTube Cobalt
+    function showTizenToast(category, categoryName) {
+        let toast = document.getElementById('sb-tizen-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'sb-tizen-toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 60px;
+                left: 60px;
+                background: rgba(18, 18, 18, 0.94);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-left: 6px solid #00D46A;
+                color: #FFFFFF;
+                padding: 14px 22px;
+                border-radius: 10px;
+                font-family: "YouTube Noto", Roboto, sans-serif;
+                font-size: 20px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+                z-index: 999999;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+        }
+
+        const color = CATEGORY_COLORS[category] || '#00D46A';
+        toast.style.borderLeftColor = color;
+        toast.innerHTML = `
+            <span style="width: 10px; height: 10px; background-color: ${color}; border-radius: 50%; display: inline-block;"></span>
+            <span>Пропущено: <strong>${categoryName}</strong></span>
+        `;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+
+        clearTimeout(window.__sbToastTimeout);
+        window.__sbToastTimeout = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+        }, 3000);
+    }
+
     function checkAndSkip() {
         const video = document.querySelector('video');
         if (!video || video.paused) return;
@@ -51,10 +142,16 @@
         if (videoId && videoId !== currentVideoId) {
             currentVideoId = videoId;
             segments = [];
+            document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
             fetchSegments(videoId);
         }
 
         if (!segments || segments.length === 0) return;
+
+        // Рисуем полоски, если они еще не нарисованы
+        if (video.duration && !document.querySelector('.sb-timeline-segment')) {
+            renderTimelineSegments(video.duration);
+        }
 
         const currentTime = video.currentTime;
 
@@ -63,41 +160,15 @@
                 const start = item.segment[0];
                 const end = item.segment[1];
 
-                // Если попали на спонсорский отрезок — мгновенно перематываем на конец
                 if (currentTime >= start && currentTime < end - 0.5) {
                     video.currentTime = end;
-                    showToast('Пропущена интеграция (SponsorBlock)');
+                    const cat = item.category || 'sponsor';
+                    showTizenToast(cat, CATEGORY_NAMES[cat] || 'Интеграция');
                     break;
                 }
             }
         }
     }
 
-    // Небольшое уведомление на экране TV
-    function showToast(text) {
-        let toast = document.getElementById('sb-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'sb-toast';
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 50px;
-                right: 50px;
-                background: rgba(0, 0, 0, 0.85);
-                color: #fff;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-size: 18px;
-                z-index: 99999;
-                transition: opacity 0.3s ease;
-            `;
-            document.body.appendChild(toast);
-        }
-        toast.innerText = text;
-        toast.style.opacity = '1';
-        setTimeout(() => { toast.style.opacity = '0'; }, 2500);
-    }
-
-    // Проверяем плеер каждые 500 мс
-    setInterval(checkAndSkip, 500);
+    setInterval(checkAndSkip, 400);
 })();
