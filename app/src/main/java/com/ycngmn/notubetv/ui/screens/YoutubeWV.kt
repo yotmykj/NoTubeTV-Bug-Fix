@@ -5,12 +5,15 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +23,7 @@ import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
 import com.ycngmn.notubetv.R
 import com.ycngmn.notubetv.ui.YoutubeVM
+import com.ycngmn.notubetv.ui.components.SettingsDialog
 import com.ycngmn.notubetv.ui.components.UpdateDialog
 import com.ycngmn.notubetv.utils.ExitBridge
 import com.ycngmn.notubetv.utils.NetworkBridge
@@ -43,9 +47,17 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loadingState = state.loadingState
     val exitTrigger = remember { mutableStateOf(false) }
 
+    // Состояния для всплывающего меню настроек
+    var showSettings by remember { mutableStateOf(false) }
+    var isWelcomeShown by remember { mutableStateOf(false) }
+
     // Перехват кнопки "Назад" с пульта ТВ
     BackHandler {
         when {
+            // Если открыто диалоговое окно настроек — закрываем его
+            showSettings -> {
+                showSettings = false
+            }
             // 1. Если у WebView есть обычная история переходов
             navigator.canGoBack -> {
                 navigator.navigateBack()
@@ -89,6 +101,13 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
     // Выполняется один раз после полной загрузки страницы
     if (loadingState == LoadingState.Finished) {
+
+        // Приветственное сообщение при первом входе в сессию
+        if (!isWelcomeShown) {
+            Toast.makeText(context, "Добро пожаловать в NoTube TV! 🚀", Toast.LENGTH_LONG).show()
+            isWelcomeShown = true
+        }
+
         // 1. Внешний JS из ViewModel
         if (jsScript != null) {
             navigator.evaluateJavaScript(jsScript)
@@ -137,6 +156,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     }
 
     if (updateData != null) UpdateDialog(updateData, navigator)
+    if (showSettings) SettingsDialog(navigator = navigator, onDismiss = { showSettings = false })
     if (exitTrigger.value) activity.finish()
 
     val loading = state.loadingState as? LoadingState.Loading
@@ -155,14 +175,12 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 WindowManager.LayoutParams.MATCH_PARENT
             )
 
-            // Настройка Cookie для сохранения сессии авторизации
             val cookieManager = CookieManager.getInstance()
             cookieManager.setAcceptCookie(true)
             cookieManager.setAcceptThirdPartyCookies(webView, true)
             cookieManager.flush()
 
             state.webSettings.apply {
-                // ТВ User-Agent выдаёт экран активации по коду с телефона
                 customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                 isJavaScriptEnabled = true
 
@@ -175,15 +193,12 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             webView.apply {
                 webChromeClient = WebChromeClient()
 
-                // Нативные мосты для выхода из приложения и сетевых запросов (включая SponsorBlock)
                 addJavascriptInterface(ExitBridge(exitTrigger), "ExitBridge")
                 addJavascriptInterface(NetworkBridge(navigator), "NetworkBridge")
 
-                // Аппаратное ускорение и масштабирование
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 setInitialScale(25)
 
-                // Скрываем полосы прокрутки
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
             }
