@@ -45,9 +45,38 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
     // Перехват кнопки "Назад" с пульта ТВ
     BackHandler {
-        if (state.loadingState is LoadingState.Finished)
-            navigator.evaluateJavaScript(readRaw(context, R.raw.back_bridge))
-        else exitTrigger.value = true
+        when {
+            // 1. Если у WebView есть обычная история переходов
+            navigator.canGoBack -> {
+                navigator.navigateBack()
+            }
+            // 2. Если страница загружена — отправляем событие Escape в YouTube TV
+            state.loadingState is LoadingState.Finished -> {
+                val backPressScript = """
+                    (function() {
+                        function dispatchKey(key, keyCode, code) {
+                            const downEvent = new KeyboardEvent('keydown', {
+                                key: key, keyCode: keyCode, code: code, which: keyCode,
+                                bubbles: true, cancelable: true
+                            });
+                            const upEvent = new KeyboardEvent('keyup', {
+                                key: key, keyCode: keyCode, code: code, which: keyCode,
+                                bubbles: true, cancelable: true
+                            });
+                            document.dispatchEvent(downEvent);
+                            document.dispatchEvent(upEvent);
+                        }
+                        dispatchKey('Escape', 27, 'Escape');
+                    })();
+                """.trimIndent()
+
+                navigator.evaluateJavaScript(backPressScript)
+            }
+            // 3. В остальных случаях закрываем приложение
+            else -> {
+                exitTrigger.value = true
+            }
+        }
     }
 
     // Загрузка внешних скриптов и обновлений при старте
@@ -58,7 +87,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // Выполняется после полной загрузки страницы
+    // Выполняется один раз после полной загрузки страницы
     if (loadingState == LoadingState.Finished) {
         // 1. Внешний JS из ViewModel
         if (jsScript != null) {
@@ -66,15 +95,23 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
 
         // 2. Локальный блокировщик рекламы из res/raw/adblock.js
-        val adblockScript = readRaw(context, R.raw.adblock)
-        if (adblockScript.isNotEmpty()) {
-            navigator.evaluateJavaScript(adblockScript)
+        try {
+            val adblockJs = readRaw(context, R.raw.adblock)
+            if (adblockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(adblockJs)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         // 3. SponsorBlock из res/raw/sponsorblock.js
-        val sponsorBlockScript = readRaw(context, R.raw.sponsorblock)
-        if (sponsorBlockScript.isNotEmpty()) {
-            navigator.evaluateJavaScript(sponsorBlockScript)
+        try {
+            val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
+            if (sponsorBlockJs.isNotEmpty()) {
+                navigator.evaluateJavaScript(sponsorBlockJs)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         // 4. Кастомные CSS стили (прозрачность UI)
