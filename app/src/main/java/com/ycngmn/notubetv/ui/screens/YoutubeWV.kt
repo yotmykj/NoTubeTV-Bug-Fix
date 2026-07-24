@@ -33,7 +33,6 @@ import com.ycngmn.notubetv.utils.fetchScripts
 import com.ycngmn.notubetv.utils.getUpdate
 import com.ycngmn.notubetv.utils.permHandler
 import com.ycngmn.notubetv.utils.readRaw
-import kotlinx.coroutines.delay
 
 @Composable
 fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
@@ -51,13 +50,9 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val exitTrigger = remember { mutableStateOf(false) }
 
     var showSplash by remember { mutableStateOf(true) }
-    var countdown by remember { mutableStateOf(5) }
 
     BackHandler {
         when {
-            showSplash -> {
-                showSplash = false
-            }
             navigator.canGoBack -> {
                 navigator.navigateBack()
             }
@@ -73,7 +68,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 navigator.evaluateJavaScript(backPressScript)
             }
             else -> {
-                exitTrigger.value = true
+                activity.finish()
             }
         }
     }
@@ -83,19 +78,12 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         getUpdate(context, navigator) { update ->
             if (update != null) youtubeVM.setUpdate(update)
         }
-
-        for (i in 5 downTo 1) {
-            if (!showSplash) break
-            countdown = i
-            delay(1000)
-        }
-        if (showSplash) {
-            showSplash = false
-        }
     }
 
     LaunchedEffect(loadingState) {
         if (loadingState is LoadingState.Finished) {
+            showSplash = false
+
             if (jsScript != null) {
                 navigator.evaluateJavaScript(jsScript)
             }
@@ -115,9 +103,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     if (updateData != null) UpdateDialog(updateData, navigator)
     if (exitTrigger.value) activity.finish()
 
-    val loading = state.loadingState as? LoadingState.Loading
-    if (loading != null && !showSplash) SplashLoading(loading.progress)
-
     Box(modifier = Modifier.fillMaxSize()) {
         WebView(
             modifier = Modifier.fillMaxSize(),
@@ -132,18 +117,23 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     WindowManager.LayoutParams.MATCH_PARENT
                 )
 
+                // Разрешаем куки и сессии для авторизации Google
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(webView, true)
                 cookieManager.flush()
 
                 state.webSettings.apply {
+                    // Стабильный User-Agent для Smart TV/Cobalt для корректного входа через QR-код или почту
                     customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                     isJavaScriptEnabled = true
 
                     androidWebSettings.apply {
                         useWideViewPort = true
+                        loadWithOverviewMode = true
                         domStorageEnabled = true
+                        databaseEnabled = true
+                        mediaPlaybackRequiresUserGesture = false
                     }
                 }
 
@@ -162,7 +152,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         )
 
-        // Чистый современный Splash Screen без лишних текстов
         if (showSplash) {
             Box(
                 modifier = Modifier
@@ -172,10 +161,10 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             ) {
                 Box(
                     modifier = Modifier
-                        .width(480.dp)
+                        .width(420.dp)
                         .background(Color(0xFF18181B), RoundedCornerShape(20.dp))
                         .border(1.dp, Color(0xFF27272A), RoundedCornerShape(20.dp))
-                        .padding(36.dp)
+                        .padding(32.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -184,20 +173,14 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                         Text(
                             text = "NoTube TV",
                             color = Color.White,
-                            fontSize = 38.sp,
+                            fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                         Text(
-                            text = "Bug Fix v4 • Android TV",
+                            text = "Загрузка...",
                             color = Color(0xFFA1A1AA),
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(bottom = 24.dp)
-                        )
-                        Text(
-                            text = "Запуск через $countdown сек...",
-                            color = Color(0xFF71717A),
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
