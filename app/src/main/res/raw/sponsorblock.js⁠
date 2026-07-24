@@ -1,17 +1,64 @@
 (function () {
-    if (window.__sponsorblock_initialized) return;
-    window.__sponsorblock_initialized = true;
+    if (window.__tizentube_initialized) return;
+    window.__tizentube_initialized = true;
+
+    // Настройки по умолчанию
+    window.SB_SETTINGS = {
+        enabled: true,
+        skipSponsor: true,
+        skipIntro: true,
+        skipOutro: true,
+        skipInteraction: true,
+        skipSelfpromo: true,
+        showToast: true
+    };
+
+    // Приветственное уведомление в стиле TizenTube Cobalt при старте
+    function showWelcomeToast() {
+        if (document.getElementById('tizen-welcome-toast')) return;
+        
+        const welcome = document.createElement('div');
+        welcome.id = 'tizen-welcome-toast';
+        welcome.style.cssText = `
+            position: fixed;
+            top: 40px;
+            right: 40px;
+            background: rgba(28, 28, 28, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 6px solid #FF0000;
+            color: #FFFFFF;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-family: "YouTube Noto", Roboto, sans-serif;
+            font-size: 18px;
+            z-index: 999999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transition: opacity 0.5s ease;
+        `;
+        welcome.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV (TizenTube)</div>
+            <div style="font-size: 15px; color: #CCCCCC;">Спонсорблок и блокировщик активны ✅</div>
+        `;
+        document.body.appendChild(welcome);
+
+        setTimeout(() => {
+            welcome.style.opacity = '0';
+            setTimeout(() => welcome.remove(), 500);
+        }, 4000);
+    }
+
+    // Запускаем приветствие через 2 секунды после загрузки плеера
+    setTimeout(showWelcomeToast, 2000);
 
     let currentVideoId = null;
     let segments = [];
 
-    // Цвета категорий как в TizenTube / SmartTube
     const CATEGORY_COLORS = {
-        sponsor: '#00D46A',       // Зеленый — спонсор
-        intro: '#00C3FF',         // Голубой — интро
-        outro: '#00C3FF',         // Голубой — концовка
-        interaction: '#CC00FF',   // Фиолетовый — призыв подписаться
-        selfpromo: '#FF9900'      // Оранжевый — самопиар
+        sponsor: '#00D46A',
+        intro: '#00C3FF',
+        outro: '#00C3FF',
+        interaction: '#CC00FF',
+        selfpromo: '#FF9900'
     };
 
     const CATEGORY_NAMES = {
@@ -33,19 +80,20 @@
         return null;
     }
 
-    // Отрисовка цветных полосок на таймлайне Cobalt (как в TizenTube)
     function renderTimelineSegments(duration) {
         document.querySelectorAll('.sb-timeline-segment').forEach(el => el.remove());
-
         const progressBar = document.querySelector('.ytp-progress-bar, ytlr-progress-bar, .ytlr-progress-bar-container');
         if (!progressBar || !duration) return;
 
         segments.forEach(item => {
             if (!item.segment || item.segment.length !== 2) return;
+            const category = item.category || 'sponsor';
+            
+            if (category === 'sponsor' && !window.SB_SETTINGS.skipSponsor) return;
+            if (category === 'intro' && !window.SB_SETTINGS.skipIntro) return;
+
             const start = item.segment[0];
             const end = item.segment[1];
-            const category = item.category || 'sponsor';
-
             const leftPercent = (start / duration) * 100;
             const widthPercent = ((end - start) / duration) * 100;
 
@@ -89,8 +137,8 @@
         }
     }
 
-    // Всплывающее уведомление в стиле TizenTube Cobalt
-    function showTizenToast(category, categoryName) {
+    function showTizenToast(categoryName, color) {
+        if (!window.SB_SETTINGS.showToast) return;
         let toast = document.getElementById('sb-tizen-toast');
         if (!toast) {
             toast = document.createElement('div');
@@ -118,7 +166,6 @@
             document.body.appendChild(toast);
         }
 
-        const color = CATEGORY_COLORS[category] || '#00D46A';
         toast.style.borderLeftColor = color;
         toast.innerHTML = `
             <span style="width: 10px; height: 10px; background-color: ${color}; border-radius: 50%; display: inline-block;"></span>
@@ -135,6 +182,7 @@
     }
 
     function checkAndSkip() {
+        if (!window.SB_SETTINGS.enabled) return;
         const video = document.querySelector('video');
         if (!video || video.paused) return;
 
@@ -147,23 +195,23 @@
         }
 
         if (!segments || segments.length === 0) return;
-
-        // Рисуем полоски, если они еще не нарисованы
         if (video.duration && !document.querySelector('.sb-timeline-segment')) {
             renderTimelineSegments(video.duration);
         }
 
         const currentTime = video.currentTime;
-
         for (const item of segments) {
             if (item.segment && item.segment.length === 2) {
+                const category = item.category || 'sponsor';
+                if (category === 'sponsor' && !window.SB_SETTINGS.skipSponsor) continue;
+                if (category === 'intro' && !window.SB_SETTINGS.skipIntro) continue;
+
                 const start = item.segment[0];
                 const end = item.segment[1];
 
                 if (currentTime >= start && currentTime < end - 0.5) {
                     video.currentTime = end;
-                    const cat = item.category || 'sponsor';
-                    showTizenToast(cat, CATEGORY_NAMES[cat] || 'Интеграция');
+                    showTizenToast(CATEGORY_NAMES[category] || 'Интеграцию', CATEGORY_COLORS[category] || '#00D46A');
                     break;
                 }
             }
