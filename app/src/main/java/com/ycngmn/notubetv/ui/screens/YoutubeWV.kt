@@ -7,6 +7,7 @@ import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,7 +17,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -221,7 +228,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         }
 
-        // 2. Экран расширенных настроек (с SponsorBlock и подписью автора)
+        // 2. Экран расширенных настроек (с поддержкой пульта Android TV)
         if (showSettings) {
             Box(
                 modifier = Modifier
@@ -283,11 +290,31 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
 @Composable
 fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .width(460.dp)
-            .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(8.dp))
+            .background(
+                color = if (isFocused) Color(0xFF333333) else Color(0xFF1E1E1E),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) Color(0xFFCC0000) else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
+                    onCheckedChange(!checked)
+                    true
+                } else {
+                    false
+                }
+            }
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
