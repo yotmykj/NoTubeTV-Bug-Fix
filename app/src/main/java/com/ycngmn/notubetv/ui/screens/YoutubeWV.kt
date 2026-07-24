@@ -18,6 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -60,21 +62,45 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loadingState = state.loadingState
     val exitTrigger = remember { mutableStateOf(false) }
 
-    // Состояния
     var showSplash by remember { mutableStateOf(true) }
     var countdown by remember { mutableStateOf(5) }
     var showSettings by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
+    var isEnglish by remember { mutableStateOf(false) }
 
-    // Настройки AdBlock & SponsorBlock
     var adBlockEnabled by remember { mutableStateOf(true) }
     var sponsorBlockEnabled by remember { mutableStateOf(true) }
     var sponsorAutoSkip by remember { mutableStateOf(true) }
     var sponsorIntroSkip by remember { mutableStateOf(true) }
     var updateCheckEnabled by remember { mutableStateOf(true) }
 
-    // Обработка кнопки "Назад"
+    val firstItemFocusRequester = remember { FocusRequester() }
+    val aboutBackFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(showSettings) {
+        if (showSettings && !showAbout) {
+            delay(100)
+            try {
+                firstItemFocusRequester.requestFocus()
+            } catch (e: Exception) {}
+        }
+    }
+
+    LaunchedEffect(showAbout) {
+        if (showAbout) {
+            delay(100)
+            try {
+                aboutBackFocusRequester.requestFocus()
+            } catch (e: Exception) {}
+        }
+    }
+
     BackHandler {
         when {
+            showAbout -> {
+                showAbout = false
+                showSettings = true
+            }
             showSplash -> {
                 showSplash = false
                 showSettings = true
@@ -102,7 +128,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // Таймер обратного отчета на 5 секунд при старте
     LaunchedEffect(Unit) {
         youtubeVM.setScript(fetchScripts())
         getUpdate(context, navigator) { update ->
@@ -110,16 +135,15 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
 
         for (i in 5 downTo 1) {
-            if (!showSplash || showSettings) break
+            if (!showSplash || showSettings || showAbout) break
             countdown = i
             delay(1000)
         }
-        if (showSplash && !showSettings) {
+        if (showSplash && !showSettings && !showAbout) {
             showSplash = false
         }
     }
 
-    // Инъекция скриптов после загрузки страницы
     LaunchedEffect(loadingState, adBlockEnabled, sponsorBlockEnabled) {
         if (loadingState is LoadingState.Finished) {
             if (jsScript != null) {
@@ -146,10 +170,9 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     if (exitTrigger.value) activity.finish()
 
     val loading = state.loadingState as? LoadingState.Loading
-    if (loading != null && !showSplash && !showSettings) SplashLoading(loading.progress)
+    if (loading != null && !showSplash && !showSettings && !showAbout) SplashLoading(loading.progress)
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Основной WebView с YouTube TV
         WebView(
             modifier = Modifier.fillMaxSize(),
             state = state,
@@ -193,7 +216,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         )
 
-        // 1. 5-секундный экран загрузки при старте
+        // 1. Экран загрузки
         if (showSplash) {
             Box(
                 modifier = Modifier
@@ -207,7 +230,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     modifier = Modifier.padding(32.dp)
                 ) {
                     Text(
-                        text = "NoTube TV",
+                        text = "NoTube TV by manas",
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
@@ -229,8 +252,8 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         }
 
-        // 2. Экран расширенных настроек (с поддержкой пульта Android TV)
-        if (showSettings) {
+        // 2. Экран настроек
+        if (showSettings && !showAbout) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -252,37 +275,117 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
                     Column(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(bottom = 24.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     ) {
-                        CheckboxItem(text = "Блокировщик рекламы (AdBlock)", checked = adBlockEnabled) { adBlockEnabled = it }
+                        CheckboxItem(
+                            text = "Блокировщик рекламы (AdBlock + Shorts)",
+                            checked = adBlockEnabled,
+                            modifier = Modifier.focusRequester(firstItemFocusRequester)
+                        ) { adBlockEnabled = it }
+                        
                         CheckboxItem(text = "Включить SponsorBlock", checked = sponsorBlockEnabled) { sponsorBlockEnabled = it }
                         CheckboxItem(text = "Авто-пропуск спонсорских вставок", checked = sponsorAutoSkip) { sponsorAutoSkip = it }
                         CheckboxItem(text = "Пропуск интро / паузы / подписок", checked = sponsorIntroSkip) { sponsorIntroSkip = it }
                         CheckboxItem(text = "Проверка обновлений", checked = updateCheckEnabled) { updateCheckEnabled = it }
                     }
 
+                    MenuButton(text = "О программе / About") {
+                        showSettings = false
+                        showAbout = true
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     Button(
                         onClick = { showSettings = false },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCC0000)),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.width(220.dp).height(48.dp)
+                        modifier = Modifier
+                            .width(460.dp)
+                            .height(48.dp)
                     ) {
                         Text(text = "Запустить YouTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+        }
 
-                    // Подпись автора и почта
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "by manas",
-                        color = Color.LightGray,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "saparbektv@gmail.com",
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
+        // 3. Отдельный экран "О программе" (About) с поддержкой RU / EN
+        if (showAbout) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0D0D0D)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.width(520.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isEnglish) "About NoTube TV" else "О программе",
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // Кнопка переключения языка
+                        MenuButton(
+                            text = if (isEnglish) "🌐 RU" else "🌐 EN",
+                            modifier = Modifier.width(100.dp)
+                        ) {
+                            isEnglish = !isEnglish
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .width(520.dp)
+                            .background(Color(0xFF1E1E1E), RoundedCornerShape(12.dp))
+                            .padding(24.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text(
+                                text = "NoTube TV by manas",
+                                color = Color(0xFFFF0000),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Text(
+                                text = if (isEnglish) 
+                                    "About App:\nNoTube TV is a modified YouTube TV client for Android TV designed to provide a seamless viewing experience with built-in AdBlock, Shorts ad filtration, and SponsorBlock.\n\nWhy I made it:\nI created this application because I wanted to enjoy YouTube on the big screen without intrusive commercials, sponsored segments, and annoying shorts ads, giving full freedom and control to users."
+                                else 
+                                    "О программе:\nNoTube TV — это модифицированный клиент YouTube TV для Android TV, созданный для комфортного просмотра видео без навязчивой рекламы, роликов в Shorts и спонсорских интеграций.\n\nПочему я это сделал:\nЯ создал это приложение, потому что мне хотелось смотреть любимый контент на большом экране телевизора без рекламных пауз, отвлекающих вставок и лишнего мусора, обеспечив максимальное удобство и полный контроль.",
+                                color = Color.LightGray,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(bottom = 14.dp)
+                            )
+                            Text(
+                                text = "Developer: manas\nEmail: saparbektv@gmail.com",
+                                color = Color(0xFF00D46A),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    MenuButton(
+                        text = if (isEnglish) "Back to Settings" else "Назад в настройки",
+                        modifier = Modifier.focusRequester(aboutBackFocusRequester)
+                    ) {
+                        showAbout = false
+                        showSettings = true
+                    }
                 }
             }
         }
@@ -290,12 +393,17 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 }
 
 @Composable
-fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun CheckboxItem(
+    text: String,
+    checked: Boolean,
+    modifier: Modifier = Modifier,
+    onCheckedChange: (Boolean) -> Unit
+) {
     var isFocused by remember { mutableStateOf(false) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        modifier = modifier
             .width(460.dp)
             .background(
                 color = if (isFocused) Color(0xFF333333) else Color(0xFF1E1E1E),
@@ -323,6 +431,49 @@ fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> U
             text = if (checked) "☑ $text" else "☐ $text",
             color = Color.White,
             fontSize = 15.sp
+        )
+    }
+}
+
+@Composable
+fun MenuButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .width(460.dp)
+            .background(
+                color = if (isFocused) Color(0xFF333333) else Color(0xFF1E1E1E),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) Color(0xFFCC0000) else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
         )
     }
 }
