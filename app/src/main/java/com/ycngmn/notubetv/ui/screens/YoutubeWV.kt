@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,15 +58,14 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     var countdown by remember { mutableStateOf(5) }
     var showSettings by remember { mutableStateOf(false) }
 
-    // Настоящие настройки вместо выбора 1080p
+    // Настройки AdBlock & SponsorBlock
     var adBlockEnabled by remember { mutableStateOf(true) }
     var sponsorBlockEnabled by remember { mutableStateOf(true) }
+    var sponsorAutoSkip by remember { mutableStateOf(true) }
+    var sponsorIntroSkip by remember { mutableStateOf(true) }
     var updateCheckEnabled by remember { mutableStateOf(true) }
 
-    // Логика кнопки "Назад":
-    // 1. Во время 5-секундного сплеш-экрана нажатие Back открывает настройки.
-    // 2. Внутри настроек нажатие Back закрывает их и запускает YouTube.
-    // 3. Внутри YouTube кнопка Back работает штатно (история назад / отправка Escape / выход).
+    // Обработка кнопки "Назад"
     BackHandler {
         when {
             showSplash -> {
@@ -112,28 +112,34 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    if (loadingState is LoadingState.Finished) {
-        if (jsScript != null) {
-            navigator.evaluateJavaScript(jsScript)
-        }
-
-        if (adBlockEnabled) {
-            val adblockJs = readRaw(context, R.raw.adblock)
-            if (adblockJs.isNotEmpty()) {
-                navigator.evaluateJavaScript(adblockJs)
+    // Инъекция скриптов после загрузки страницы
+    LaunchedEffect(loadingState, adBlockEnabled, sponsorBlockEnabled) {
+        if (loadingState is LoadingState.Finished) {
+            if (jsScript != null) {
+                navigator.evaluateJavaScript(jsScript)
             }
-        }
 
-        if (sponsorBlockEnabled) {
-            val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
-            if (sponsorBlockJs.isNotEmpty()) {
-                navigator.evaluateJavaScript(sponsorBlockJs)
+            if (adBlockEnabled) {
+                val adblockJs = readRaw(context, R.raw.adblock)
+                if (adblockJs.isNotEmpty()) {
+                    navigator.evaluateJavaScript(adblockJs)
+                }
+            }
+
+            if (sponsorBlockEnabled) {
+                val sponsorBlockJs = readRaw(context, R.raw.sponsorblock)
+                if (sponsorBlockJs.isNotEmpty()) {
+                    navigator.evaluateJavaScript(sponsorBlockJs)
+                }
             }
         }
     }
 
-    if (updateData != null) UpdateDialog(updateData, navigator)
+    if (updateData != null && updateCheckEnabled) UpdateDialog(updateData, navigator)
     if (exitTrigger.value) activity.finish()
+
+    val loading = state.loadingState as? LoadingState.Loading
+    if (loading != null && !showSplash && !showSettings) SplashLoading(loading.progress)
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Основной WebView с YouTube TV
@@ -216,7 +222,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
         }
 
-        // 2. Экран настроек (AdBlock, SponsorBlock)
+        // 2. Экран расширенных настроек (с SponsorBlock и подписью автора)
         if (showSettings) {
             Box(
                 modifier = Modifier
@@ -232,17 +238,19 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     Text(
                         text = "Настройки NoTube TV",
                         color = Color.White,
-                        fontSize = 28.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 32.dp)
+                        modifier = Modifier.padding(bottom = 20.dp)
                     )
 
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(bottom = 40.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(bottom = 24.dp)
                     ) {
                         CheckboxItem(text = "Блокировщик рекламы (AdBlock)", checked = adBlockEnabled) { adBlockEnabled = it }
-                        CheckboxItem(text = "Пропуск спонсоров (SponsorBlock)", checked = sponsorBlockEnabled) { sponsorBlockEnabled = it }
+                        CheckboxItem(text = "Включить SponsorBlock", checked = sponsorBlockEnabled) { sponsorBlockEnabled = it }
+                        CheckboxItem(text = "Авто-пропуск спонсорских вставок", checked = sponsorAutoSkip) { sponsorAutoSkip = it }
+                        CheckboxItem(text = "Пропуск интро / паузы / подписок", checked = sponsorIntroSkip) { sponsorIntroSkip = it }
                         CheckboxItem(text = "Проверка обновлений", checked = updateCheckEnabled) { updateCheckEnabled = it }
                     }
 
@@ -250,10 +258,24 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                         onClick = { showSettings = false },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCC0000)),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.width(220.dp).height(50.dp)
+                        modifier = Modifier.width(220.dp).height(48.dp)
                     ) {
                         Text(text = "Запустить YouTube", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
+
+                    // Подпись автора и почта
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "by manas",
+                        color = Color.LightGray,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "saparbektv@gmail.com",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -265,15 +287,27 @@ fun CheckboxItem(text: String, checked: Boolean, onCheckedChange: (Boolean) -> U
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .width(420.dp)
+            .width(460.dp)
             .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(8.dp))
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         Text(
             text = if (checked) "☑ $text" else "☐ $text",
             color = Color.White,
-            fontSize = 16.sp
+            fontSize = 15.sp
         )
+    }
+}
+
+@Composable
+fun SplashLoading(progress: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0D0D0D)),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(color = Color(0xFFCC0000))
     }
 }
