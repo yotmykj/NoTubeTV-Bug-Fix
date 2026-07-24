@@ -1,9 +1,12 @@
 package com.ycngmn.notubetv.ui.screens
 
 import android.app.Activity
+import android.graphics.Bitmap
 import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -57,13 +60,19 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         }
     }
 
-    // При завершении загрузки применяем пользовательские скрипты и исправляем прозрачность
+    // При завершении загрузки применяем пользовательские скрипты, блокировщик и стили
     if (loadingState == LoadingState.Finished) {
         if (jsScript != null) {
             navigator.evaluateJavaScript(jsScript)
         }
 
-        // Инжект CSS для полупрозрачности плеера и меню
+        // 1. Внедряем блокировщик рекламы из res/raw/adblock.js
+        val adblockScript = readRaw(context, R.raw.adblock)
+        if (adblockScript.isNotEmpty()) {
+            navigator.evaluateJavaScript(adblockScript)
+        }
+
+        // 2. Инжект CSS для полупрозрачности плеера и меню
         val transparencyScript = """
             (function() {
                 if (document.getElementById('custom-transparency-style')) return;
@@ -94,6 +103,10 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     val loading = state.loadingState as? LoadingState.Loading
     if (loading != null) SplashLoading(loading.progress)
 
+    // User-Agent константы для ТВ и для формы авторизации Google
+    val tvUA = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
+    val loginUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
     WebView(
         modifier = Modifier.fillMaxSize(),
         state = state,
@@ -115,7 +128,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
 
             state.webSettings.apply {
                 // User-Agent от Amazon Fire TV Stick 4K (Cobalt)
-                customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
+                customUserAgentString = tvUA
                 isJavaScriptEnabled = true
 
                 androidWebSettings.apply {
@@ -126,6 +139,21 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             }
 
             webView.apply {
+
+                // Включаем WebChromeClient для корректной обработки JS-событий формы Google
+                webChromeClient = WebChromeClient()
+
+                // Динамически переключаем User-Agent на время входа в Google Аккаунт
+                webViewClient = object : WebViewClient() {
+                    override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        if (url != null && url.contains("accounts.google.com")) {
+                            view?.settings?.userAgentString = loginUA
+                        } else {
+                            view?.settings?.userAgentString = tvUA
+                        }
+                    }
+                }
 
                 // Bridges the exit button click on the website to handle it natively.
                 addJavascriptInterface(ExitBridge(exitTrigger), "ExitBridge")
