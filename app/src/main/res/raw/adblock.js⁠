@@ -1,52 +1,14 @@
- (function() {
+(function() {
     if (window.__notube_adblock_initialized) return;
     window.__notube_adblock_initialized = true;
 
-    function showAdBlockToast() {
-        if (document.getElementById('notube-adblock-toast')) return;
-        const toast = document.createElement('div');
-        toast.id = 'notube-adblock-toast';
-        toast.style.cssText = `
-            position: fixed;
-            top: 40px;
-            left: 40px;
-            background: rgba(18, 18, 18, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-left: 6px solid #FF0000;
-            color: #FFFFFF;
-            padding: 16px 24px;
-            border-radius: 12px;
-            font-family: Roboto, sans-serif;
-            font-size: 18px;
-            z-index: 2147483647;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
-            transition: opacity 0.5s ease;
-        `;
-        toast.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 4px; color: #FF0000;">NoTube TV by manas</div>
-            <div style="font-size: 15px; color: #CCCCCC;">AdBlock on my round ✅</div>
-        `;
-        const target = document.body || document.documentElement;
-        if (target) {
-            target.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 500);
-            }, 4000);
-        }
-    }
-
-    if (document.body) {
-        showAdBlockToast();
-    } else {
-        window.addEventListener('DOMContentLoaded', showAdBlockToast);
-    }
-
     const cleanAds = () => {
         try {
+            // 1. Автоматический клик по кнопкам пропуска рекламы
             const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], button[class*="skip"]');
             skipButtons.forEach(btn => { if (btn) btn.click(); });
 
+            // 2. Ускорение и мгновенный пропуск видеорекламы
             const video = document.querySelector('video');
             const adIndicator = document.querySelector('.ad-showing, .ytp-ad-player-overlay, [class*="ad-showing"], [class*="ad-container"]');
 
@@ -59,6 +21,7 @@
                 }
             }
 
+            // 3. Удаление рекламы в Shorts
             const reelAds = document.querySelectorAll('ytlr-reel-ad-item-renderer, [is-ad-item]');
             reelAds.forEach(ad => ad.remove());
         } catch (e) {}
