@@ -2,63 +2,48 @@
     if (window.__notube_adblock_initialized) return;
     window.__notube_adblock_initialized = true;
 
-    // 1. БЛОКИРОВЩИК РЕКЛАМЫ ДЛЯ ОБЫЧНЫХ ВИДЕО
-    setInterval(() => {
-        const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], div[id*="skip-button"]');
-        skipButtons.forEach(btn => {
-            if (btn) btn.click();
-        });
-
-        const video = document.querySelector('video');
-        const adIndicator = document.querySelector('.ad-showing, [class*="ad-showing"], [class*="ad-container"]');
-
-        if (video && (adIndicator || video.duration && video.currentTime < 0.1 && document.querySelector('.ytp-ad-player-overlay'))) {
-            if (video.playbackRate < 16) {
-                video.playbackRate = 16.0;
-            }
-            if (!video.muted) {
-                video.muted = true;
-            }
-            if (video.duration && !isNaN(video.duration) && video.currentTime < video.duration - 0.5) {
-                video.currentTime = video.duration - 0.1;
-            }
-        } else if (video && video.playbackRate === 16.0) {
-            video.playbackRate = 1.0;
-        }
-    }, 250);
-
-    // 2. БЛОКИРОВЩИК РЕКЛАМЫ ДЛЯ SHORTS
-    const cleanShortsDOM = () => {
-        const ads = document.querySelectorAll(
-            'ytlr-reel-ad-item-renderer, ' +
-            '[is-ad-item], ' +
-            '.ad-interrupting, ' +
-            '.ad-showing, ' +
-            '[badgetext="Реклама"]'
-        );
-
-        ads.forEach(ad => {
-            if (ad.tagName && ad.tagName.toLowerCase() === 'ytlr-reel-ad-item-renderer') {
-                ad.remove();
-            } else {
-                const video = ad.querySelector('video') || document.querySelector('video');
-                if (video && !video.__skippingAd) {
-                    video.__skippingAd = true;
-                    video.muted = true;
-                    video.playbackRate = 16.0;
-                    if (ad.getPlayer && typeof ad.getPlayer().skipAd === 'function') {
-                        ad.getPlayer().skipAd();
-                    } else if (ad.hostElement && ad.hostElement.skipAd) {
-                        ad.hostElement.skipAd();
-                    }
-                }
-            }
-        });
-    };
-
+    // 1. Блокировщик рекламы для обычных видео
     setInterval(() => {
         try {
-            cleanShortsDOM();
+            const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], div[id*="skip-button"]');
+            skipButtons.forEach(btn => { if (btn) btn.click(); });
+
+            const video = document.querySelector('video');
+            const adIndicator = document.querySelector('.ad-showing, [class*="ad-showing"], [class*="ad-container"]');
+
+            if (video && (adIndicator || (video.duration && video.currentTime < 0.1 && document.querySelector('.ytp-ad-player-overlay')))) {
+                if (video.playbackRate < 16) video.playbackRate = 16.0;
+                if (!video.muted) video.muted = true;
+                if (video.duration && !isNaN(video.duration) && video.currentTime < video.duration - 0.5) {
+                    video.currentTime = video.duration - 0.1;
+                }
+            } else if (video && video.playbackRate === 16.0) {
+                video.playbackRate = 1.0;
+            }
         } catch (e) {}
-    }, 100);
+    }, 250);
+
+    // 2. Блокировщик рекламы для Shorts
+    setInterval(() => {
+        try {
+            const ads = document.querySelectorAll('ytlr-reel-ad-item-renderer, [is-ad-item], .ad-interrupting, .ad-showing, [badgetext="Реклама"]');
+            ads.forEach(ad => {
+                if (ad.tagName && ad.tagName.toLowerCase() === 'ytlr-reel-ad-item-renderer') {
+                    ad.remove();
+                } else {
+                    const video = ad.querySelector('video') || document.querySelector('video');
+                    if (video && !video.__skippingAd) {
+                        video.__skippingAd = true;
+                        video.muted = true;
+                        video.playbackRate = 16.0;
+                        if (ad.getPlayer && typeof ad.getPlayer().skipAd === 'function') {
+                            ad.getPlayer().skipAd();
+                        } else if (ad.hostElement && ad.hostElement.skipAd) {
+                            ad.hostElement.skipAd();
+                        }
+                    }
+                }
+            });
+        } catch (e) {}
+    }, 150);
 })();
