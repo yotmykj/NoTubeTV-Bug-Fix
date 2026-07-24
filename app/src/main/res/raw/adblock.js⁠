@@ -1,77 +1,64 @@
 (function() {
-    if (window.__notube_shorts_adblock_loaded) return;
-    window.__notube_shorts_adblock_loaded = true;
+    if (window.__notube_adblock_initialized) return;
+    window.__notube_adblock_initialized = true;
 
-    console.log("[NoTube+] Активирован агрессивный блокировщик для Shorts");
+    // 1. БЛОКИРОВЩИК РЕКЛАМЫ ДЛЯ ОБЫЧНЫХ ВИДЕО
+    setInterval(() => {
+        const skipButtons = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [class*="skip-button"], div[id*="skip-button"]');
+        skipButtons.forEach(btn => {
+            if (btn) btn.click();
+        });
 
-    const CONFIG = {
-        // Цвет индикатора выполнения, чтобы ты видел, когда он работает (опционально)
-        progressColor: '#38BDF8', 
-        // Время задержки перед следующим сканированием DOM (в мс)
-        scanInterval: 100 
-    };
+        const video = document.querySelector('video');
+        const adIndicator = document.querySelector('.ad-showing, [class*="ad-showing"], [class*="ad-container"]');
 
-    // 1. УНИЧТОЖИТЕЛЬ РЕКЛАМЫ В DOM (ИНТЕРФЕЙСЕ) SHORTS
+        if (video && (adIndicator || video.duration && video.currentTime < 0.1 && document.querySelector('.ytp-ad-player-overlay'))) {
+            if (video.playbackRate < 16) {
+                video.playbackRate = 16.0;
+            }
+            if (!video.muted) {
+                video.muted = true;
+            }
+            if (video.duration && !isNaN(video.duration) && video.currentTime < video.duration - 0.5) {
+                video.currentTime = video.duration - 0.1;
+            }
+        } else if (video && video.playbackRate === 16.0) {
+            video.playbackRate = 1.0;
+        }
+    }, 250);
+
+    // 2. БЛОКИРОВЩИК РЕКЛАМЫ ДЛЯ SHORTS
     const cleanShortsDOM = () => {
-        // Находим все элементы, которые могут быть рекламой в Shorts
-        // YouTube ТВ использует специфические классы для рекламных Shorts-контейнеров
         const ads = document.querySelectorAll(
-            'ytlr-reel-ad-item-renderer, ' +          // Родной рекламный рендерер Shorts
-            '[is-ad-item], ' +                        // Атрибут "рекламный элемент"
-            '.ad-interrupting, ' +                    // Класс "прерывание на рекламу"
-            '.ad-showing, ' +                         // Класс "показывается реклама"
-            '[badgetext="Реклама"]'                    // Элемент с текстом "Реклама"
+            'ytlr-reel-ad-item-renderer, ' +
+            '[is-ad-item], ' +
+            '.ad-interrupting, ' +
+            '.ad-showing, ' +
+            '[badgetext="Реклама"]'
         );
 
         ads.forEach(ad => {
-            // МЕТОД 1: ПОЛНОЕ УДАЛЕНИЕ ИЗ DOM
-            // Если мы нашли рекламный Shorts-контейнер, мы его просто вырезаем.
-            // Лента автоматически "схлопнется", и следующее видео подтянется.
             if (ad.tagName && ad.tagName.toLowerCase() === 'ytlr-reel-ad-item-renderer') {
-                console.log("[NoTube+] Удален рекламный Shorts-контейнер");
                 ad.remove();
             } else {
-                // МЕТОД 2: АВТО-ПРОМОТКА (если реклама уже встроилась в видеопоток)
-                // Если реклама уже запустилась, мы моментально проматываем видео до конца.
                 const video = ad.querySelector('video') || document.querySelector('video');
                 if (video && !video.__skippingAd) {
-                    console.log("[NoTube+] Промотка рекламного видео в Shorts");
-                    video.__skippingAd = true; // Защита от зацикливания
-                    
-                    // Устанавливаем время в конец видео и имитируем завершение
+                    video.__skippingAd = true;
                     video.muted = true;
-                    video.playbackRate = 16.0; // Для SPAs SPAs иногда нужно дать видео доиграть
-                    
-                    // Если у плеера есть JS-контроллер, пытаемся вызвать функцию пропуска
+                    video.playbackRate = 16.0;
                     if (ad.getPlayer && typeof ad.getPlayer().skipAd === 'function') {
-                         ad.getPlayer().skipAd();
+                        ad.getPlayer().skipAd();
                     } else if (ad.hostElement && ad.hostElement.skipAd) {
-                         ad.hostElement.skipAd();
+                        ad.hostElement.skipAd();
                     }
                 }
             }
         });
-
-        // 3. СКРЫВАЕМ КНОПКИ 'SHORTS' ИЗ МЕНЮ И ЛЕНТЫ (опционально, если хочешь)
-        // Чтобы убрать Shorts из главного меню
-        // const shortsPivot = document.querySelector('ytlr-pivot-bar-item-renderer[content-id="FEshorts"]');
-        // if (shortsPivot) shortsPivot.style.display = 'none';
     };
 
-
-    // 2. ЗАПУСК ПОСТОЯННОГО МОНИТОРИНГА
-    // MutationObserver слишком тяжел для ТВ, используем частый setInterval
-    // Он будет сканировать DOM каждые 100мс на наличие рекламных узелков Shorts.
-    const runScan = () => {
+    setInterval(() => {
         try {
             cleanShortsDOM();
-        } catch (e) {
-            // Ошибки JS в ТВ-браузере — норма, просто игнорируем
-        }
-    };
-
-    // Запускаем сканирование при старте и по таймеру
-    runScan();
-    setInterval(runScan, CONFIG.scanInterval);
-
+        } catch (e) {}
+    }, 100);
 })();
