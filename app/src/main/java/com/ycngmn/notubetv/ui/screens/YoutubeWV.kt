@@ -117,22 +117,18 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     WindowManager.LayoutParams.MATCH_PARENT
                 )
 
-                // Разрешаем куки и сессии для авторизации Google
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(webView, true)
                 cookieManager.flush()
 
                 state.webSettings.apply {
-                    // Стабильный User-Agent для Smart TV/Cobalt для корректного входа через QR-код или почту
                     customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                     isJavaScriptEnabled = true
 
                     androidWebSettings.apply {
                         useWideViewPort = true
-                        loadWithOverviewMode = true
                         domStorageEnabled = true
-                        databaseEnabled = true
                         mediaPlaybackRequiresUserGesture = false
                     }
                 }
