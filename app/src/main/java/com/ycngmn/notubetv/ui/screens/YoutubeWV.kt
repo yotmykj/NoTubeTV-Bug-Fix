@@ -1,4 +1,4 @@
-package com.ycngmn.notubetv.ui.screens
+Package com.ycngmn.notubetv.ui.screens
 
 import android.app.Activity
 import android.view.View
@@ -83,6 +83,38 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     LaunchedEffect(loadingState) {
         if (loadingState is LoadingState.Finished) {
             showSplash = false
+
+            // Исправление для авторизации Google (кнопка «Дальше» и обрезанный интерфейс)
+            val currentUrl = state.lastLoadedUrl ?: ""
+            if (currentUrl.contains("accounts.google.com")) {
+                val googleFixJs = """
+                    (function() {
+                        let meta = document.querySelector('meta[name="viewport"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.name = "viewport";
+                            document.head.appendChild(meta);
+                        }
+                        meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+
+                        const googleStyleFix = document.createElement('style');
+                        googleStyleFix.innerHTML = 'body, html { overflow-x: hidden !important; } div[data-view-id] { max-width: 100vw !important; box-sizing: border-box !important; }';
+                        if (document.head) document.head.appendChild(googleStyleFix);
+
+                        document.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' || e.keyCode === 13) {
+                                const active = document.activeElement;
+                                if (active && (active.tagName === 'BUTTON' || active.getAttribute('role') === 'button' || active.type === 'submit')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    active.click();
+                                }
+                            }
+                        }, true);
+                    })();
+                """.trimIndent()
+                navigator.evaluateJavaScript(googleFixJs)
+            }
 
             if (jsScript != null) {
                 navigator.evaluateJavaScript(jsScript)
