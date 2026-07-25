@@ -1,4 +1,4 @@
-Package com.ycngmn.notubetv.ui.screens
+package com.ycngmn.notubetv.ui.screens
 
 import android.app.Activity
 import android.view.View
@@ -155,7 +155,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 cookieManager.flush()
 
                 state.webSettings.apply {
-                    customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
+                    customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (A[...]
                     isJavaScriptEnabled = true
 
                     androidWebSettings.apply {
