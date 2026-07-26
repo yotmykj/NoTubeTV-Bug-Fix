@@ -84,8 +84,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
         if (loadingState is LoadingState.Finished) {
             showSplash = false
 
-            // Исправление для авторизации Google (кнопка «Дальше» и обрезанный интерфейс)
-            val currentUrl = state.lastLoadedUrl ?: ""
+            val currentUrl = (state.content as? com.multiplatform.webview.web.WebContent.Url)?.url ?: ""
             if (currentUrl.contains("accounts.google.com")) {
                 val googleFixJs = """
                     (function() {
@@ -98,16 +97,25 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                         meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
 
                         const googleStyleFix = document.createElement('style');
-                        googleStyleFix.innerHTML = 'body, html { overflow-x: hidden !important; } div[data-view-id] { max-width: 100vw !important; box-sizing: border-box !important; }';
+                        googleStyleFix.innerHTML = "body, html { overflow-x: hidden !important; } div[data-view-id] { max-width: 100vw !important; box-sizing: border-box !important; }";
                         if (document.head) document.head.appendChild(googleStyleFix);
 
                         document.addEventListener('keydown', function(e) {
                             if (e.key === 'Enter' || e.keyCode === 13) {
                                 const active = document.activeElement;
-                                if (active && (active.tagName === 'BUTTON' || active.getAttribute('role') === 'button' || active.type === 'submit')) {
+                                if (active) {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    active.click();
+                                    
+                                    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function(eventType) {
+                                        const event = new MouseEvent(eventType, {
+                                            bubbles: true,
+                                            cancelable: true,
+                                            view: window,
+                                            buttons: 1
+                                        });
+                                        active.dispatchEvent(event);
+                                    });
                                 }
                             }
                         }, true);
@@ -155,7 +163,7 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                 cookieManager.flush()
 
                 state.webSettings.apply {
-                    customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (A[...]
+                    customUserAgentString = "Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Cobalt/24.lts.3-gold (gzip) FireTV/AFTMM (Amazon, AFTMM)"
                     isJavaScriptEnabled = true
 
                     androidWebSettings.apply {
