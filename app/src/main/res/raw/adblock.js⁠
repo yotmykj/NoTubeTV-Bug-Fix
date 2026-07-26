@@ -44,4 +44,49 @@
             observer.observe(document.body, { childList: true, subtree: true });
         });
     }
+// ===== NoTube+ Shorts AdBlock =====
+(function () {
+    if (window.__notubeShortsAdBlock) return;
+    window.__notubeShortsAdBlock = true;
+
+    function blockShortsAds() {
+        try {
+            // Удаление рекламных элементов Shorts
+            document.querySelectorAll(`
+                ytlr-reel-ad-item-renderer,
+                [is-ad-item],
+                [class*="reel-ad"],
+                [class*="shorts-ad"],
+                ytlr-ad-badge
+            `).forEach(el => el.remove());
+
+            // Если проигрывается рекламный Shorts — пропускаем
+            const video = document.querySelector("video");
+            const isAd =
+                document.querySelector("ytlr-reel-ad-item-renderer") ||
+                document.querySelector('[class*="ad-showing"]');
+
+            if (video && isAd && video.duration) {
+                video.muted = true;
+                video.currentTime = video.duration;
+            }
+
+            // Удаляем рекламные бейджи
+            document.querySelectorAll('[aria-label*="Реклама"], [aria-label*="Ad"]')
+                .forEach(el => el.remove());
+
+        } catch (e) {}
+    }
+
+    // Первичная проверка
+    blockShortsAds();
+
+    // Следим за изменениями страницы
+    new MutationObserver(blockShortsAds).observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+
+    // Дополнительная проверка
+    setInterval(blockShortsAds, 300);
 })();
