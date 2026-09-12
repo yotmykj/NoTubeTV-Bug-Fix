@@ -181,23 +181,8 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     isJavaScriptEnabled = true
                     androidWebSettings.apply {
                         useWideViewPort = true
-                        // Overview mode + a fixed 100% text zoom keep the
-                        // initial layout scale deterministic across loads.
-                        loadWithOverviewMode = true
-                        textZoom = 100
                         domStorageEnabled = true
                         mediaPlaybackRequiresUserGesture = false
-                        // This is a TV remote-control app: nothing on screen
-                        // should ever be pinch- or button-zoomable, and no
-                        // on-screen zoom controls should render. Disabling
-                        // zoom here is a safety net (not a fix by itself) so
-                        // that even if a future page/script sets a
-                        // conflicting viewport meta, the WebView can no
-                        // longer runaway-scale the content the way it did
-                        // before spoofViewport.js was fixed.
-                        supportZoom = false
-                        builtInZoomControls = false
-                        displayZoomControls = false
                     }
                 }
 
