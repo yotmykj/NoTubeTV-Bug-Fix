@@ -44,7 +44,7 @@ import com.ycngmn.notubetv.utils.readAsset
 
 private const val YOUTUBE_URL = "https://www.youtube.com/tv"
 
-private const val GOOGLE_FIX_JS = """
+private val GOOGLE_FIX_JS = """
 (function() {
     try {
         let meta = document.querySelector('meta[name="viewport"]');
@@ -181,11 +181,8 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     isJavaScriptEnabled = true
                     androidWebSettings.apply {
                         useWideViewPort = true
-                        loadWithOverviewMode = true
                         domStorageEnabled = true
                         mediaPlaybackRequiresUserGesture = false
-                        builtInZoomControls = false
-                        displayZoomControls = false
                     }
                 }
 
