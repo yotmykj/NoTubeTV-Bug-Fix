@@ -45,12 +45,6 @@ import com.ycngmn.notubetv.utils.readAsset
 
 private const val YOUTUBE_URL = "https://www.youtube.com/tv"
 
-// NoTubeTV's dark theme background. Used both as the native WebView
-// background (so any transient, transparent page chrome - e.g. YouTube TV's
-// own buffering/"Stop" control while a video is loading - sits on a themed
-// background instead of WebView's default white) and as the Compose
-// container background so there's no flash of white before the WebView is
-// even created.
 private val NOTUBETV_BG = Color(0xFF09090B)
 
 private val GOOGLE_FIX_JS = """
@@ -105,14 +99,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
     var updateCheckStarted by remember { mutableStateOf(false) }
     val exitTrigger = remember { mutableStateOf(false) }
 
-    // Back must control ONLY the WebView's own site history:
-    //   canGoBack() == true  -> goBack()
-    //   canGoBack() == false -> do nothing to the WebView (and nothing else:
-    //                           no reload, no scale change, no Activity.finish(),
-    //                           no synthetic key events into the page).
-    // The app still has an explicit exit path (the in-page NoTubeTV menu ->
-    // Exit, wired through ExitBridge below), so Back never needs to double as
-    // an app-exit or page-escape gesture.
     BackHandler(enabled = true) {
         if (navigator.canGoBack) {
             navigator.navigateBack()
@@ -134,8 +120,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
             navigator.evaluateJavaScript(GOOGLE_FIX_JS)
         }
 
-        // A page reload creates a fresh JS global. The guard prevents duplicate
-        // MutationObservers when Compose recomposes the finished state.
         val wrappedScript = """
             (function() {
                 if (window.__notube_tv_userscript_loaded) return;
@@ -185,23 +169,9 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     isJavaScriptEnabled = true
                     androidWebSettings.apply {
                         useWideViewPort = true
-                        // Overview mode + a fixed 100% text zoom keep the
-                        // initial layout scale deterministic across loads.
-                        loadWithOverviewMode = true
                         textZoom = 100
                         domStorageEnabled = true
                         mediaPlaybackRequiresUserGesture = false
-                        // This is a TV remote-control app: nothing on screen
-                        // should ever be pinch- or button-zoomable, and no
-                        // on-screen zoom controls should render. Disabling
-                        // zoom here is a safety net (not a fix by itself) so
-                        // that even if a future page/script sets a
-                        // conflicting viewport meta, the WebView can no
-                        // longer runaway-scale the content the way it did
-                        // before spoofViewport.js was fixed.
-                        supportZoom = false
-                        builtInZoomControls = false
-                        displayZoomControls = false
                     }
                 }
 
@@ -211,15 +181,6 @@ fun YoutubeWV(youtubeVM: YoutubeVM = viewModel()) {
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     isVerticalScrollBarEnabled = false
                     isHorizontalScrollBarEnabled = false
-                    // Themed background instead of WebView's default white.
-                    // Fixes the "Stop" button (shown by YouTube TV while a
-                    // video is buffering) appearing to sit on a broken/wrong
-                    // background: that control's own container is
-                    // transparent, so it was rendering directly on top of
-                    // WebView's default background color. This only paints
-                    // the areas the page itself leaves transparent - it
-                    // can't cover the video surface, doesn't intercept
-                    // input, and doesn't touch focus handling.
                     setBackgroundColor(AndroidColor.parseColor("#09090B"))
                 }
             }
